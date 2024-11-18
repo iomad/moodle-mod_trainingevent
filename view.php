@@ -1451,9 +1451,9 @@ if (!$event = $DB->get_record('trainingevent', array('id' => $cm->instance))) {
                 echo "<h3>".get_string('attendance', 'local_report_attendance')."</h3>";
             }
             $table->out($CFG->iomad_max_list_users, true);
-            if (!$download) {
-                echo $OUTPUT->footer();
-            }
+        }
+        if (!$download) {
+            echo $OUTPUT->footer();
         }
     }
 }
