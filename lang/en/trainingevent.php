@@ -46,6 +46,7 @@ $string['trainingevent:addoverride'] = 'Add a user to a training event - overrid
 $string['trainingevent:grade'] = 'Allow grading of training events';
 $string['trainingevent:invite'] = 'Allow inviting of users to training event';
 $string['trainingevent:resetattendees'] = 'Clear attendees of training events';
+$string['trainingevent:viewallattendees'] = 'View all attendees of training events regardless of company';
 $string['trainingevent:viewattendees'] = 'View attendees of training events';
 $string['details'] = '* View details and book users';
 $string['emailssent'] = 'Emails have been sent';
