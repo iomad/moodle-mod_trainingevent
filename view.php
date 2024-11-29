@@ -501,7 +501,14 @@ if (!$event = $DB->get_record('trainingevent', array('id' => $cm->instance))) {
                 $alreadyattending = $DB->count_records('trainingevent_users', array('trainingeventid' => $chosenevent->id, 'waitlisted' => 0));
                 $user = $DB->get_record('user', array('id' => $userid));
                 $course = $DB->get_record('course', array('id' => $event->course));
-                if ($alreadyattending < $chosenlocation->capacity) {
+
+                // Is the capacity overridden?
+                if (!empty($chosenevent->coursecapacity)) {
+                    $chosenlocation->capacity = $chosenevent->coursecapacity;
+                }
+
+                // Check for availability.
+                if (!empty($chosenlocation->isvirtual) || $alreadyattending < $chosenlocation->capacity) {
                     // What kind of event is this?
                     if ($chosenevent->approvaltype == 0 || $chosenevent->approvaltype == 4 || $myapprovallevel == "company" ||
                         ($chosenevent->approvaltype == 1 && $myapprovallevel == "department")) {
