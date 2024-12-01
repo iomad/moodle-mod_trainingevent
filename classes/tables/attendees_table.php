@@ -136,7 +136,7 @@ class attendees_table extends table_sql {
                          <input type="hidden" name="view" value="1" />
                          <input type="text" name="usergrades[]" id="id_usergrade"
                                 value="'.$usergradeentry->items[0]->grades[$row->id]->str_grade.'" />
-                         <input type="submit" value="' . get_string('grade', 'grades') . '" />';
+                         <input type="submit" value="' . get_string('grade', 'iomadcertificate') . '" />';
 
         }
 
@@ -192,7 +192,7 @@ class attendees_table extends table_sql {
         global $params, $id, $waitingoption;
 
         if (has_capability('mod/trainingevent:grade', context_module::instance($id)) && $waitingoption == 0) {
-            echo '<br><input type="submit" value="' . get_string('grade', 'grades') . '" />
+            echo '<br><input type="submit" value="' . get_string('grade', 'iomadcertificate') . '" />
                   </form>';
         }
     }
