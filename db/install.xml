@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="mod/trainingevent/db" VERSION="20240301" COMMENT="XMLDB file for Moodle mod/trainingevent"
+<XMLDB PATH="mod/trainingevent/db" VERSION="20241206" COMMENT="XMLDB file for Moodle mod/trainingevent"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
 >
@@ -28,7 +28,7 @@
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
       </KEYS>
       <INDEXES>
-        <INDEX NAME="trainingevent" UNIQUE="false" FIELDS="course"/>
+        <INDEX NAME="trainingevent" UNIQUE="false" FIELDS="course" COMMENT="[Foreign Key, course, course, id]"/>
       </INDEXES>
     </TABLE>
     <TABLE NAME="trainingevent_users" COMMENT="To keep tabs on the users who have booked in this event">
@@ -40,6 +40,8 @@
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id" COMMENT="[Foreign Key, userid, user, id]"/>
+        <KEY NAME="trainingeventid" TYPE="foreign" FIELDS="trainingeventid" REFTABLE="trainingevent" REFFIELDS="id" COMMENT="[Foreign Key, trainingeventid, trainingevent, id]"/>
       </KEYS>
     </TABLE>
   </TABLES>
