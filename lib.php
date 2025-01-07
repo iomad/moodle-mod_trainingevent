@@ -177,7 +177,7 @@ function trainingevent_get_participants($trainingeventid) {
  * @return object|null
  */
 function trainingevent_get_coursemodule_info($coursemodule) {
-    global $DB, $CFG, $USER;
+    global $DB, $CFG, $USER, $OUTPUT;
 
     if ($trainingevent = $DB->get_record('trainingevent', array('id' => $coursemodule->instance), '*')) {
         if (empty($trainingevent->name)) {
@@ -194,19 +194,17 @@ function trainingevent_get_coursemodule_info($coursemodule) {
             $extra = $trainingevent->intro;
         }
 
+        $template = (object)[];
         if ($trainingevent->classroomid) {
             if ($classroom = $DB->get_record('classroom', array('id' => $trainingevent->classroomid), '*')) {
-                $extra .= get_string('location', 'trainingevent') . ": " . $classroom->name . "<br>";
+                $template->name = $classroom->name;
             }
         }
         $dateformat = "$CFG->iomad_date_format, g:ia";
 
-        $extra .= get_string('startdatetime', 'trainingevent') . ": " . date($dateformat, $trainingevent->startdatetime);
-        $extra .= "<br><a href='$CFG->wwwroot/mod/trainingevent/view.php?id=$coursemodule->id'>".
-                   get_string('details', 'trainingevent')."</a><br>";
-
-        // Sneakily prepend the extra info to the intro value (only for the remainder of this function).
-        $trainingevent->intro = "<div>" . $extra . "</div>";
+        $template->startdatetime = date($dateformat, $trainingevent->startdatetime);
+        $template->moduleurl = "$CFG->wwwroot/mod/trainingevent/view.php?id=$coursemodule->id";
+        $trainingevent->intro = $OUTPUT->render_from_template('mod_trainingevent/trainingevent_intro', $template);
 
         $info->content = null;
         $info->content = format_module_intro('trainingevent', $trainingevent, $coursemodule->id, false);
