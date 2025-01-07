@@ -204,7 +204,7 @@ function trainingevent_get_coursemodule_info($coursemodule) {
 
         $template->startdatetime = date($dateformat, $trainingevent->startdatetime);
         $template->moduleurl = "$CFG->wwwroot/mod/trainingevent/view.php?id=$coursemodule->id";
-        $trainingevent->intro = $OUTPUT->render_from_template('mod_trainingevent/trainingevent_intro', $template);
+        $trainingevent->intro = $OUTPUT->render_from_template('mod_trainingevent/intro', $template);
 
         $info->content = null;
         $info->content = format_module_intro('trainingevent', $trainingevent, $coursemodule->id, false);
