@@ -56,8 +56,6 @@ if (! $course = $DB->get_record("course", array("id" => $cm->course))) {
 require_course_login($course, false, $cm);
 
 $systemcontext = context_system::instance();
-$companyid = iomad::get_my_companyid($systemcontext);
-$companycontext = \core\context\company::instance($companyid);
 
 // Get the database entry.
 if (!$event = $DB->get_record('trainingevent', array('id' => $cm->instance))) {
@@ -92,7 +90,7 @@ if (!$event = $DB->get_record('trainingevent', array('id' => $cm->instance))) {
             }
         }
 
-        if (has_capability('block/iomad_company_admin:edit_all_departments', $companycontext)) {
+        if (has_capability('block/iomad_company_admin:edit_all_departments', context_system::instance())) {
             $userhierarchylevel = $parentlevel->id;
         } else {
             $userlevel = $company->get_userlevel($USER);
@@ -107,7 +105,7 @@ if (!$event = $DB->get_record('trainingevent', array('id' => $cm->instance))) {
                                            WHERE name = 'trainingevent')", array('eventid' => $event->id));
 
         // What is the users approval level, if any?
-        if (has_capability('block/iomad_company_admin:company_add', $companycontext) ||
+        if (has_capability('block/iomad_company_admin:company_add', context_system::instance()) ||
             $manageruser = $DB->get_records('company_users', array('userid' => $USER->id, 'managertype' => 1))) {
             $myapprovallevel = "company";
         } else if ($manageruser = $DB->get_records('company_users', array('userid' => $USER->id, 'managertype' => 2))) {
@@ -273,9 +271,6 @@ if (!$event = $DB->get_record('trainingevent', array('id' => $cm->instance))) {
                         }
                         if (!empty($location->postcode)) {
                             $eventlocation .= ", " . format_string($location->postcode);
-                        }
-                        if (!empty($location->description)) {
-                            $eventlocation .= ", " . strip_tags($location->description);
                         }
                         $calendarevent->location = $eventlocation; 
                         $calendarevent->courseid = 0;
@@ -514,7 +509,7 @@ if (!$event = $DB->get_record('trainingevent', array('id' => $cm->instance))) {
                         ($chosenevent->approvaltype == 1 && $myapprovallevel == "department")) {
 
                         // Get the user's company.
-                        $usercompany = new company($chosenlocation->companyid);
+                        $usercompany = company::by_userid($user->id);
 
                         // Add to the chosen event.
                         if (!$DB->get_record('trainingevent_users', array('userid' => $userid,
@@ -554,9 +549,6 @@ if (!$event = $DB->get_record('trainingevent', array('id' => $cm->instance))) {
                             }
                             if (!empty($location->postcode)) {
                                 $eventlocation .= ", " . format_string($location->postcode);
-                            }
-                            if (!empty($location->description)) {
-                                $eventlocation .= ", " . strip_tags($location->description);
                             }
                             $calendarevent->location = $eventlocation; 
                             $calendarevent->courseid = 0;
@@ -660,7 +652,7 @@ if (!$event = $DB->get_record('trainingevent', array('id' => $cm->instance))) {
                                && $myapprovallevel == "department") {
 
                         // Get the user's company.
-                        $usercompany = new company($chosenlocation->companyid);
+                        $usercompany = company::by_userid($user->id);
 
                         // More levels of approval are required.
                         if (!$userbooking = $DB->get_record('block_iomad_approve_access', array('activityid' => $chosenevent->id,
@@ -674,7 +666,7 @@ if (!$event = $DB->get_record('trainingevent', array('id' => $cm->instance))) {
                                 throw new moodle_exception('error creating attendance record');
                             } else {
                                 $course = $DB->get_record('course', array('id' => $event->course));
-                                $chosenlocation->time = date($CFG->iomad_date_format . ' \a\t H:i', $chosenevent->startdatetime);
+                                $location->time = date($CFG->iomad_date_format . ' \a\t H:i', $chosenevent->startdatetime);
                                 $user = $DB->get_record('user', array('id' => $userid));
 
                                 // Send an email as long as it hasn't already started.
@@ -688,7 +680,7 @@ if (!$event = $DB->get_record('trainingevent', array('id' => $cm->instance))) {
                                                                                                    'approveuser' => $user,
                                                                                                    'event' => $chosenevent,
                                                                                                    'company' => $usercompany,
-                                                                                                   'classroom' => $chosenlocation));
+                                                                                                   'classroom' => $location));
                                         }
                                     }
                                 }
@@ -791,7 +783,7 @@ if (!$event = $DB->get_record('trainingevent', array('id' => $cm->instance))) {
         if ($action == 'delete' && !empty($userid)) {
 
             // Get the user's company.
-            $usercompany = new company($location->companyid);
+            $usercompany = company::by_userid($userid);
 
             // Remove the userid from the event.
             if ($DB->delete_records('trainingevent_users', array('userid' => $userid, 'trainingeventid' => $event->id))) {
@@ -859,7 +851,7 @@ if (!$event = $DB->get_record('trainingevent', array('id' => $cm->instance))) {
         }
         if ($action == 'add' && !empty($userid)) {
             // Get the user's company.
-            $usercompany = new company($location->companyid);
+            $usercompany = company::by_userid($userid);
 
             $chosenlocation = $DB->get_record('classroom', array('id' => $event->classroomid));
             $alreadyattending = $DB->count_records('trainingevent_users', array('trainingeventid' => $event->id, 'waitlisted' => 0));
@@ -926,9 +918,6 @@ if (!$event = $DB->get_record('trainingevent', array('id' => $cm->instance))) {
                         }
                         if (!empty($location->postcode)) {
                             $eventlocation .= ", " . format_string($location->postcode);
-                        }
-                        if (!empty($location->description)) {
-                            $eventlocation .= ", " . strip_tags($location->description);
                         }
                         $calendarevent->location = $eventlocation; 
                         $calendarevent->courseid = 0;
@@ -1134,10 +1123,12 @@ if (!$event = $DB->get_record('trainingevent', array('id' => $cm->instance))) {
         // Get the current number booked on it.
         $numattending = $DB->count_records('trainingevent_users', array('trainingeventid' => $event->id, 'waitlisted' => 0));
 
-        $eventtable = "<h2>$event->name</h2>";
-        if (!empty($messagestring)) {
-            $eventtable .= "<p>$messagestring</p>";
-        }
+        //Create object to be used for the mustache file
+        $template = (object)[
+            'event_name' => $event->name
+        ];
+
+        //Define buttons variable to store all the html for the control buttons
         $buttons = null;
         if (has_capability('mod/trainingevent:invite', $context)) {
             $publishparams = ['id' => $id,
@@ -1184,52 +1175,38 @@ if (!$event = $DB->get_record('trainingevent', array('id' => $cm->instance))) {
                                                             'action' => 'reset']),
                                                 get_string('resetattending', 'trainingevent'));
         }
-        $eventtable .= "</tr></table>";
-        $eventtable .= "<table class='trainingeventdetails'>";
-        $eventtable .= "<tr><th>" . get_string('location', 'trainingevent') . "</th><td>" . format_text($location->name) . "</td></tr>";
 
-        if (!empty($location->description)) {
-            $editoroptions = array('maxfiles' => EDITOR_UNLIMITED_FILES, 'maxbytes'=>$CFG->maxbytes, 'trusttext'=>false, 'noclean'=>true);
-            $editoroptions['context'] = $systemcontext;
-            $editoroptions['subdirs'] = file_area_contains_subdirs($systemcontext, 'classroom', 'description', 0);
-
-            $summary = file_rewrite_pluginfile_urls($location->description, 'pluginfile.php', $systemcontext->id, 'block_iomad_company_admin', 'classroom_description', null);
-            $summary = format_text($summary, $location->descriptionformat, $editoroptions, $location->id);
-            $eventtable .= "<tr><th></th><td>" . $summary . "</td></tr>";
-        }
-
+        //Define a location object for the template
+        $template->location = format_text($location->name);
+        //Define objects for extra details if the location is not virtual
         if (empty($location->isvirtual)) {
-            $eventtable .= "<tr><th>" . get_string('address') . "</th><td>" . $location->address . "</td></tr>";
-            $eventtable .= "<tr><th>" . get_string('city') . "</th><td>" . $location->city . "</td></tr>";
-            $eventtable .= "<tr><th>" . get_string('postcode', 'block_iomad_commerce') . "</th><td>" .
-                           $location->postcode . "</td></tr>";
-            $eventtable .= "<tr><th>" . get_string('country') . "</th><td>" . $location->country . "</td></tr>";
+            $template->trainingeventdetails_array[] = [get_string('address'), $location->address];
+            $template->trainingeventdetails_array[] = [get_string('city'), $location->city];
+            $template->trainingeventdetails_array[] = [get_string('postcode', 'block_iomad_commerce'), $location->postcode];
+            $template->trainingeventdetails_array[] = [get_string('country'), $location->country];
         }
+        
+        //Define the date format and the objects for the start and end date
         $dateformat = "d F Y, g:ia";
-
-        $eventtable .= "<tr><th>" . get_string('startdatetime', 'trainingevent') . "</th><td>" .
-                        date($dateformat, $event->startdatetime) . "</td></tr>";
-        $eventtable .= "<tr><th>" . get_string('enddatetime', 'trainingevent') . "</th><td>" .
-                        date($dateformat, $event->enddatetime) . "</td></tr>";
+        $template->trainingeventdetails_array[] = [get_string('startdatetime', 'trainingevent'), date($dateformat, $event->startdatetime)];
+        $template->trainingeventdetails_array[] = [get_string('enddatetime', 'trainingevent'), date($dateformat, $event->enddatetime)];
+        
+        //Create a object for attending if it is true
         if ($attending) {
-            $eventtable .= "<tr><th>" . get_string('exportcalendar', 'trainingevent') . "</th><td>";
-            $exportlink = new moodle_url('/mod/trainingevent/view.php',
-                                         array('id' => $id, 'exportcalendar' => 'yes'));
-            $eventtable .=   "<a href='" . $exportlink . "' class='btn btn-secondary'>" . get_string('exportbutton', 'calendar') ."</a>";
-            $eventtable .=   "</td></tr>";
+            $template->attending = new moodle_url('/mod/trainingevent/view.php', array('id' => $id, 'exportcalendar' => 'yes'));
         }
+
+        //Create a capacity_array object if it isn't virtual or if the course capacity is not empty
         if (empty($location->isvirtual) || !empty($event->coursecapacity)) {
-            $eventtable .= "<tr><th>" . get_string('capacity', 'trainingevent') . "</th><td>" .
-                            $attendancecount .get_string('of', 'trainingevent') . $maxcapacity . "</td></tr>";
+            $template->capacity_array = [[$attendancecount, $maxcapacity]];
         }
-        $eventtable .= "</table>";
 
         if (!$download) {
             if($buttons != null){
                 echo $PAGE->set_button($buttons);
             }
             echo $OUTPUT->header();
-            echo $eventtable;
+            echo $OUTPUT->render_from_template('mod_trainingevent/view', $template);
 
             // Output the buttons.
             if ($attending) {
@@ -1324,7 +1301,7 @@ if (!$event = $DB->get_record('trainingevent', array('id' => $cm->instance))) {
             $parentlevel = company::get_company_parentnode($company->id);
             $companydepartment = $parentlevel->id;
 
-            if (has_capability('block/iomad_company_admin:edit_all_departments', $companycontext)) {
+            if (has_capability('block/iomad_company_admin:edit_all_departments', context_system::instance())) {
                 $userhierarchylevel = $parentlevel->id;
             } else {
                 $userlevel = $company->get_userlevel($USER);

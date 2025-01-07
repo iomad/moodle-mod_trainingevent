@@ -1,0 +1,27 @@
+<h2>{{event_name}}</h2>
+<table class='trainingeventdetails'>
+    <tbody>
+        <tr>
+            <th>{{#str}}location, trainingevent{{/str}}</th>
+            <td>{{{location}}}</td>
+        </tr>
+        {{#trainingeventdetails_array}}
+            <tr>
+                <th>{{0}}</th>
+                <td>{{1}}</td>
+            </tr>
+        {{/trainingeventdetails_array}}
+        {{#attending}}
+            <tr>
+                <th>{{#str}}exportcalendar, trainingevent{{/str}}</th>
+                <td><a href="{{{attending}}}" class='btn btn-secondary'>{{#str}}exportbutton, calendar{{/str}}</a></td>
+            </tr>
+        {{/attending}}
+        {{#capacity_array}}
+            <tr>
+                <th>{{#str}}capacity, trainingevent{{/str}}</th>
+                <td>{{0}} {{#str}}of, trainingevent{{/str}} {{1}}</td>
+            </tr>
+        {{/capacity_array}}
+    </tbody>
+</table>
