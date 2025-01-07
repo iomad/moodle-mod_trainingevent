@@ -1138,7 +1138,7 @@ if (!$event = $DB->get_record('trainingevent', array('id' => $cm->instance))) {
         if (!empty($messagestring)) {
             $eventtable .= "<p>$messagestring</p>";
         }
-        $eventtable .= "<table><tr>";
+        $buttons = null;
         if (has_capability('mod/trainingevent:invite', $context)) {
             $publishparams = ['id' => $id,
                               'publish' => 1];
@@ -1152,38 +1152,38 @@ if (!$event = $DB->get_record('trainingevent', array('id' => $cm->instance))) {
             } else {
                 $publishstring = get_string('publish', 'trainingevent');
             }
-            $eventtable .= "<td>".$OUTPUT->single_button(new moodle_url($CFG->wwwroot . '/mod/trainingevent/view.php',
-                                                         $publishparams),
-                                                         $publishstring). "</td>";
+            $buttons .= $OUTPUT->single_button(new moodle_url($CFG->wwwroot . '/mod/trainingevent/view.php',
+                                                $publishparams),
+                                                $publishstring);
         }
         if (has_capability('mod/trainingevent:viewattendees', $context)) {
-            $eventtable .= "<td>".$OUTPUT->single_button(new moodle_url($CFG->wwwroot . '/mod/trainingevent/view.php',
-                                                         array('id' => $id,
-                                                               'view' => 1)),
-                                                         get_string('viewattendees', 'trainingevent'))."</td>";
+            $buttons .= $OUTPUT->single_button(new moodle_url($CFG->wwwroot . '/mod/trainingevent/view.php',
+                                                array('id' => $id,
+                                                    'view' => 1)),
+                                                get_string('viewattendees', 'trainingevent'));
         }
         if (has_capability('mod/trainingevent:viewattendees', $context) && !empty($event->haswaitinglist)) {
-            $eventtable .= "<td>".$OUTPUT->single_button(new moodle_url($CFG->wwwroot . '/mod/trainingevent/view.php',
-                                                         array('id' => $id,
-                                                               'view' => 1,
-                                                               'waiting' => 1)),
-                                                         get_string('viewwaitlist', 'trainingevent'))."</td>";
+            $buttons .= $OUTPUT->single_button(new moodle_url($CFG->wwwroot . '/mod/trainingevent/view.php',
+                                                array('id' => $id,
+                                                    'view' => 1,
+                                                    'waiting' => 1)),
+                                                get_string('viewwaitlist', 'trainingevent'));
         }
         if (has_capability('mod/trainingevent:addoverride', $context) ||
             (has_capability('mod/trainingevent:add', $context) &&
              $numattending < $maxcapacity &&
              time() < $event->startdatetime)) {
-            $eventtable .= "<td>".$OUTPUT->single_button(new moodle_url("/mod/trainingevent/searchusers.php",
-                                                                        array('eventid' => $event->id)),
-                                                                        get_string('selectother',
-                                                                        'trainingevent')). "</td>";
+            $buttons .= $OUTPUT->single_button(new moodle_url("/mod/trainingevent/searchusers.php",
+                                                array('eventid' => $event->id)),
+                                                get_string('selectother',
+                                                'trainingevent'));
         }
-            if (!$waitingoption && has_capability('mod/trainingevent:resetattendees', $context)) {
-                    $eventtable .= "<td>". $OUTPUT->single_button(new moodle_url($CFG->wwwroot . "/mod/trainingevent/view.php",
-                                                                                 ['id' => $id,
-                                                                                  'action' => 'reset']),
-                                                                   get_string('resetattending', 'trainingevent'))."</td>";
-            }
+        if (!$waitingoption && has_capability('mod/trainingevent:resetattendees', $context)) {
+            $buttons .= $OUTPUT->single_button(new moodle_url($CFG->wwwroot . "/mod/trainingevent/view.php",
+                                                            ['id' => $id,
+                                                            'action' => 'reset']),
+                                                get_string('resetattending', 'trainingevent'));
+        }
         $eventtable .= "</tr></table>";
         $eventtable .= "<table class='trainingeventdetails'>";
         $eventtable .= "<tr><th>" . get_string('location', 'trainingevent') . "</th><td>" . format_text($location->name) . "</td></tr>";
@@ -1225,6 +1225,9 @@ if (!$event = $DB->get_record('trainingevent', array('id' => $cm->instance))) {
         $eventtable .= "</table>";
 
         if (!$download) {
+            if($buttons != null){
+                echo $PAGE->set_button($buttons);
+            }
             echo $OUTPUT->header();
             echo $eventtable;
 
