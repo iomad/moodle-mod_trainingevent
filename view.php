@@ -1206,16 +1206,15 @@ if (!$event = $DB->get_record('trainingevent', array('id' => $cm->instance))) {
                 echo $PAGE->set_button($buttons);
             }
             echo $OUTPUT->header();
-            echo $OUTPUT->render_from_template('mod_trainingevent/view', $template);
 
             // Output the buttons.
             if ($attending) {
-                echo html_writer::tag('h2', get_string('youareattending', 'trainingevent'));
+                $template->eventstatus_array[] = get_string('youareattending', 'trainingevent');
                 if (time() > $event->startdatetime) {
-                    echo html_writer::tag('h2', get_string('eventhaspassed', 'mod_trainingevent'));
+                    $template->eventstatus_array[] = get_string('eventhaspassed', 'mod_trainingevent');
                 } else if (!empty($event->lockdays) &&
                     time() + $event->lockdays*24*60*60 > $event->startdatetime) {
-                    echo html_writer::tag('h2', get_string('eventislocked', 'mod_trainingevent'));
+                    $template->eventstatus_array[] = get_string('eventislocked', 'mod_trainingevent');
                 } else {
                     echo $OUTPUT->single_button(new moodle_url('/mod/trainingevent/view.php',
                                                 array('id' => $id, 'attending' => 'no')),
@@ -1229,12 +1228,12 @@ if (!$event = $DB->get_record('trainingevent', array('id' => $cm->instance))) {
                         if (!trainingevent_event_clashes($event, $USER->id)) {
                             $printbuttons = true;
                             if (time() > $event->startdatetime) {
-                                echo html_writer::tag('h2', get_string('eventhaspassed', 'trainingevent'));
+                                $template->eventstatus_array[] = get_string('eventhaspassed', 'trainingevent');
                                 $printbuttons = false;
                             }
                             if (!empty($event->lockdays) &&
                                 time() + $event->lockdays*24*60*60 > $event->startdatetime) {
-                                echo html_writer::tag('h2', get_string('eventislocked', 'trainingevent'));
+                                $template->eventstatus_array[] = get_string('eventislocked', 'trainingevent');
                                 $printbuttons = false;
                             }
                             if ($printbuttons) {
@@ -1246,33 +1245,32 @@ if (!$event = $DB->get_record('trainingevent', array('id' => $cm->instance))) {
                                 } else if ($event->approvaltype != 4 ) {
                                     if (!$mybooking = $DB->get_record('block_iomad_approve_access', array('activityid' => $event->id,
                                                                                                             'userid' => $USER->id))) {
-        
                                         echo $OUTPUT->single_button(new moodle_url('/mod/trainingevent/view.php',
                                                                     array('id' => $id, 'booking' => 'yes')),
                                                                     get_string("request", 'trainingevent'));
                                     } else {
                                         if ($mybooking->tm_ok == 0 || $mybooking->manager_ok == 0) {
-                                            echo html_writer::tag('h2', get_string('approvalrequested', 'mod_trainingevent'));
+                                            $template->eventstatus_array[] = get_string('approvalrequested', 'mod_trainingevent');
                                         } else {
-                                            echo html_writer::tag('h2', get_string('approvaldenied', 'mod_trainingevent'));
+                                            $template->eventstatus_array[] = get_string('approvaldenied', 'mod_trainingevent');
                                                 echo $OUTPUT->single_button(new moodle_url('/mod/trainingevent/view.php',
                                                                             array('id' => $id, 'booking' => 'again')),
                                                                             get_string("requestagain", 'trainingevent'));
                                         }
                                     }
                                 } else {
-                                    echo html_writer::tag('h2', get_string('enrolledonly', 'trainingevent'));
+                                    $template->eventstatus_array[] = get_string('enrolledonly', 'trainingevent');
                                 }
                             }
                         } else {
-                            echo html_writer::tag('h2', get_string('alreadyenrolled', 'trainingevent'));
+                            $template->eventstatus_array[] = get_string('alreadyenrolled', 'trainingevent');
                         }
                     } else {
                         if (!empty($event->haswaitinglist)) {
                             $printbuttons = true;
                             if (!empty($event->lockdays) &&
                                 time() + $event->lockdays*24*60*60 > $event->startdatetime) {
-                                echo html_writer::tag('h2', get_string('eventislocked', 'trainingevent'));
+                                $template->eventstatus_array[] = get_string('eventislocked', 'trainingevent');
                                 $printbuttons = false;
                             }
                             if ($printbuttons) {
@@ -1281,18 +1279,21 @@ if (!$event = $DB->get_record('trainingevent', array('id' => $cm->instance))) {
                                     array('id' => $id, 'attending' => 'yes', 'waiting' => 1)),
                                     get_string("waitlist", 'trainingevent'));
                                 } else {
-                                    echo html_writer::tag('h2', get_string('youarewaiting', 'trainingevent'));
+                                    $template->eventstatus_array[] = get_string('youarewaiting', 'trainingevent');
                                 }
                             }
                         } else {
-                            echo html_writer::tag('h2', get_string('fullybooked', 'trainingevent'));
+                            $template->eventstatus_array[] = get_string('fullybooked', 'trainingevent');
                         }
                     }
                 } else {
-                    echo html_writer::tag('h2', get_string('eventhaspassed', 'trainingevent'));
+                    $template->eventstatus_array[] = get_string('eventhaspassed', 'trainingevent');
                 }
             }
         }
+        // Output the view template
+        echo $OUTPUT->render_from_template('mod_trainingevent/view', $template);
+        
         // Output the attendees.
         if (!empty($view) && has_capability('mod/trainingevent:viewattendees', $context)) {
             // Get the associated department id.
