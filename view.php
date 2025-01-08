@@ -1206,7 +1206,7 @@ if (!$event = $DB->get_record('trainingevent', array('id' => $cm->instance))) {
                 echo $PAGE->set_button($buttons);
             }
             echo $OUTPUT->header();
-
+            $buttonstring = '';
             // Output the buttons.
             if ($attending) {
                 $template->eventstatus_array[] = get_string('youareattending', 'trainingevent');
@@ -1216,10 +1216,7 @@ if (!$event = $DB->get_record('trainingevent', array('id' => $cm->instance))) {
                     time() + $event->lockdays*24*60*60 > $event->startdatetime) {
                     $template->eventstatus_array[] = get_string('eventislocked', 'mod_trainingevent');
                 } else {
-                    echo $OUTPUT->single_button(new moodle_url('/mod/trainingevent/view.php',
-                                                array('id' => $id, 'attending' => 'no')),
-                                                get_string("unattend", 'mod_trainingevent'));
-                    
+                    $buttonstring = get_string("unattend", 'mod_trainingevent');
                 }
             } else {
                 // Check if the event is still in the future.
@@ -1238,24 +1235,17 @@ if (!$event = $DB->get_record('trainingevent', array('id' => $cm->instance))) {
                             }
                             if ($printbuttons) {
                                 if ($event->approvaltype == 0) {
-                                   echo $OUTPUT->single_button(new moodle_url('/mod/trainingevent/view.php',
-                                                                array('id' => $id,
-                                                                      'attending' => 'yes')),
-                                                                get_string("attend", 'trainingevent'));
+                                    $buttonstring = get_string("attend", 'trainingevent');
                                 } else if ($event->approvaltype != 4 ) {
                                     if (!$mybooking = $DB->get_record('block_iomad_approve_access', array('activityid' => $event->id,
                                                                                                             'userid' => $USER->id))) {
-                                        echo $OUTPUT->single_button(new moodle_url('/mod/trainingevent/view.php',
-                                                                    array('id' => $id, 'booking' => 'yes')),
-                                                                    get_string("request", 'trainingevent'));
+                                        $buttonstring = get_string("request", 'trainingevent');
                                     } else {
                                         if ($mybooking->tm_ok == 0 || $mybooking->manager_ok == 0) {
                                             $template->eventstatus_array[] = get_string('approvalrequested', 'mod_trainingevent');
                                         } else {
                                             $template->eventstatus_array[] = get_string('approvaldenied', 'mod_trainingevent');
-                                                echo $OUTPUT->single_button(new moodle_url('/mod/trainingevent/view.php',
-                                                                            array('id' => $id, 'booking' => 'again')),
-                                                                            get_string("requestagain", 'trainingevent'));
+                                            $buttonstring = get_string("requestagain", 'trainingevent');
                                         }
                                     }
                                 } else {
@@ -1275,9 +1265,7 @@ if (!$event = $DB->get_record('trainingevent', array('id' => $cm->instance))) {
                             }
                             if ($printbuttons) {
                                 if (!$DB->get_records('trainingevent_users', array('userid' =>$USER->id, 'trainingeventid' => $event->id, 'waitlisted' => 1))) {
-                                    echo $OUTPUT->single_button(new moodle_url('/mod/trainingevent/view.php',
-                                    array('id' => $id, 'attending' => 'yes', 'waiting' => 1)),
-                                    get_string("waitlist", 'trainingevent'));
+                                    $buttonstring = get_string("waitlist", 'trainingevent');
                                 } else {
                                     $template->eventstatus_array[] = get_string('youarewaiting', 'trainingevent');
                                 }
@@ -1290,6 +1278,13 @@ if (!$event = $DB->get_record('trainingevent', array('id' => $cm->instance))) {
                     $template->eventstatus_array[] = get_string('eventhaspassed', 'trainingevent');
                 }
             }
+        }
+        if($buttonstring != ''){
+            $template->button[] = [$companyid, $cm->instance, $id, 
+                ($numattending < $maxcapacity) ? 0 : 1, 
+                ($DB->record_exists('trainingevent_users', array('userid' => $userid, 'trainingeventid' => $event->id))) ? $DB->get_record('trainingevent_users', array('userid' => $userid, 'trainingeventid' => $event->id))->id : 0,
+                $buttonstring
+            ];
         }
         // Output the view template
         echo $OUTPUT->render_from_template('mod_trainingevent/view', $template);
