@@ -123,3 +123,4 @@ $string['haswaitinglist_help'] = 'If you include a waiting list with your event,
 $string['maxsize'] = 'Override training location size to';
 $string['maxsize_help'] = 'Setting a value here will override the default room size for the training room you have selected.';
 $string['myeventtype'] = 'Training event';
+$string['bookingnotes'] = 'Booking notes';

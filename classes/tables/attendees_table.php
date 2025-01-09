@@ -45,10 +45,34 @@ class attendees_table extends table_sql {
      * @return string HTML content to go inside the td.
      */
     public function col_fullname($row) {
-        global $id;
+        global $DB, $id;
 
         $name = fullname($row, has_capability('moodle/site:viewfullnames', context_module::instance($id)));
+        // Pull booking notes to add to fullname column
+        $bookingnotes = $DB->get_field_sql("SELECT teu.booking_notes FROM {trainingevent_users} teu
+                                                 WHERE userid = :userid",
+                                                 ['userid' => $row->id]);
+        $tooltip = get_string('bookingnotes', 'mod_trainingevent');
+        if (!empty($bookingnotes)) {
+            $name .= "<a class='btn btn-link p-0' role='button' data-container='body' data-toggle='popover' data-placement='right' data-content='<div class=&quot;no-overflow&quot;><b>" . $tooltip . ":</b><br>" . $bookingnotes . "</div> ' data-html='true' tabindex='0' data-trigger='focus'>
+                     <i class='icon fa fa-exclamation-circle text-danger fa-fw ' title='$tooltip' role='img' aria-label='$tooltip'></i>
+                     </a>";
+        }
         return $name;
+    }
+
+    /**
+     * Generate the display of the user's booking notes as a separate column for CSV download
+     * @param object $row the table row being output.
+     * @return string HTML content to go inside the td.
+     */
+    public function col_bookingnotes($row) {
+        global $id, $DB;
+
+        $bookingnotes = $DB->get_field_sql("SELECT teu.booking_notes FROM {trainingevent_users} teu
+                                                 WHERE userid = :userid",
+                                                 ['userid' => $row->id]);
+        return $bookingnotes;
     }
 
     /**

@@ -1361,12 +1361,24 @@ if (!$event = $DB->get_record('trainingevent', array('id' => $cm->instance))) {
 
             $table = new \mod_trainingevent\tables\attendees_table('trainingeventattendees');
             $table->is_downloading($download, format_string($event->name) . ' ' . get_string('attendance', 'local_report_attendance'), 'trainingevent_attendees123');
-            $headers = [get_string('fullname'),
-                        get_string('department', 'block_iomad_company_admin'),
-                        get_string('email')];
-            $columns = ['fullname',
-                        'department',
-                        'email'];
+            // If downloading add the booking notes column, otherwise ignore it.        
+            if ($download) {
+                $headers = [get_string('fullname'),
+                            get_string('department', 'block_iomad_company_admin'),
+                            get_string('email'),
+                            get_string('bookingnotes', 'mod_trainingevent')];
+                $columns = ['fullname',
+                            'department',
+                            'email',
+                            'bookingnotes'];
+            } else {
+                $headers = [get_string('fullname'),
+                            get_string('department', 'block_iomad_company_admin'),
+                            get_string('email')];
+                $columns = ['fullname',
+                            'department',
+                            'email'];
+            }
 
             $selectsql = "DISTINCT u.*, " . $event->course . " AS courseid";
             $fromsql = " {user} u
