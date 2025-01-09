@@ -4,19 +4,19 @@
     {{#str}}startdatetime,trainingevent{{/str}}: {{startdatetime}}
     <br>
     {{#usersbooked}}
-        Users booked: {{usersbooked}}
+        {{#str}}usersbooked, trainingevent{{/str}}: {{usersbooked}}
         <br>
     {{/usersbooked}}
     {{#slotsleft}}
-        Slots left: {{slotsleft}}
+        {{#str}}slotsleft, trainingevent{{/str}}: {{slotsleft}}
         <br>
     {{/slotsleft}}
     {{#waitinglist}}
-        Waiting list length: {{waitinglist}}
+        {{#str}}waitinglistlength, trainingevent{{/str}}: {{waitinglist}}
         <br>
     {{/waitinglist}}
     {{#usersattended}}
-        Users attended: {{usersattended}}
+        {{#str}}usersattended, trainingevent{{/str}}: {{usersattended}}
         <br>
     {{/usersattended}}
     <a href="{{moduleurl}}">{{#str}}details, trainingevent{{/str}}</a>
