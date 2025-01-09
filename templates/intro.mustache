@@ -3,5 +3,21 @@
     <br>
     {{#str}}startdatetime,trainingevent{{/str}}: {{startdatetime}}
     <br>
+    {{#usersbooked}}
+        Users booked: {{usersbooked}}
+        <br>
+    {{/usersbooked}}
+    {{#slotsleft}}
+        Slots left: {{slotsleft}}
+        <br>
+    {{/slotsleft}}
+    {{#waitinglist}}
+        Waiting list length: {{waitinglist}}
+        <br>
+    {{/waitinglist}}
+    {{#usersattended}}
+        Users attended: {{usersattended}}
+        <br>
+    {{/usersattended}}
     <a href="{{moduleurl}}">{{#str}}details, trainingevent{{/str}}</a>
 </div>

@@ -194,6 +194,7 @@ function trainingevent_get_coursemodule_info($coursemodule) {
             $extra = $trainingevent->intro;
         }
 
+        //Create template variable
         $template = (object)[];
         if ($trainingevent->classroomid) {
             if ($classroom = $DB->get_record('classroom', array('id' => $trainingevent->classroomid), '*')) {
@@ -202,8 +203,23 @@ function trainingevent_get_coursemodule_info($coursemodule) {
         }
         $dateformat = "$CFG->iomad_date_format, g:ia";
 
+        //Define objects to be passed to the mustache file
         $template->startdatetime = date($dateformat, $trainingevent->startdatetime);
         $template->moduleurl = "$CFG->wwwroot/mod/trainingevent/view.php?id=$coursemodule->id";
+        $template->usersbooked = $DB->count_records('trainingevent_users', ['trainingeventid' => $trainingevent->id, 'waitlisted' => 0]);
+        $classroom = $DB->get_record('classroom', ['id' => $trainingevent->classroomid]);
+        if (time() < $trainingevent->startdatetime) {
+            $template->slotsleft = ($classroom->isvirtual == 0) ? 
+            ((!empty($trainingevent->coursecapacity)) ? ($trainingevent->coursecapacity - $template->usersbooked) : 
+                ((empty($classroom->isvirtual)) ? ($classroom->capacity - $template->usersbooked) : null)) : null
+            ;
+            $template->waitinglist = (empty($template->slotsleft) && $classroom->isvirtual == 0) ? 
+                $DB->count_records('trainingevent_users', ['trainingeventid' => $trainingevent->id, 'waitlisted' => 1])." " : null
+            ;
+        }
+        $template->usersattended = (time() > $trainingevent->startdatetime) ? 
+            $DB->get_record_sql("SELECT COUNT(*) as total FROM {course_modules_completion} WHERE coursemoduleid = (SELECT id FROM {course_modules} WHERE instance = :id AND module = (SELECT id FROM {modules} WHERE name = 'trainingevent'))", ["id" => $trainingevent->id])->total." " : null
+        ;
         $trainingevent->intro = $OUTPUT->render_from_template('mod_trainingevent/intro', $template);
 
         $info->content = null;
