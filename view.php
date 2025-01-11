@@ -55,11 +55,16 @@ if (! $course = $DB->get_record("course", ["id" => $cm->course])) {
 
 require_course_login($course, false, $cm);
 
+// Set the contexts.
 $systemcontext = context_system::instance();
+$context = context_module::instance($cm->id);
+$coursecontext = context_course::instance($course->id);
+
+// Get my company info.
 $companyid = iomad::get_my_companyid($systemcontext);
 $company = new company($companyid);
 
-// Have we been sent a userif?
+// Have we been sent a userid?
 if (!empty($userid)) {
     // If so - also get the user's company.
     $usercompany = company::by_userid($userid);
@@ -78,7 +83,6 @@ if (!$trainingevent = $DB->get_record('trainingevent', ['id' => $cm->instance]))
 
         // Page stuff.
         $url = new moodle_url('/mod/trainingevent/view.php', ['id' => $id]);
-        $context = context_module::instance($cm->id);
         require_login($trainingevent->course, false, $cm); // Adds to $PAGE, creates $OUTPUT.
         $PAGE->set_url($url);
         $PAGE->set_title($trainingevent->name);
@@ -97,7 +101,7 @@ if (!$trainingevent = $DB->get_record('trainingevent', ['id' => $cm->instance]))
             }
         }
 
-        if (has_capability('block/iomad_company_admin:edit_all_departments', context_system::instance())) {
+        if (has_capability('block/iomad_company_admin:edit_all_departments', $systemcontext)) {
             $userhierarchylevel = $parentlevel->id;
         } else {
             $userlevel = $company->get_userlevel($USER);
@@ -113,7 +117,7 @@ if (!$trainingevent = $DB->get_record('trainingevent', ['id' => $cm->instance]))
                                         ['eventid' => $trainingevent->id]);
 
         // What is the users approval level, if any?
-        if (has_capability('block/iomad_company_admin:company_add', context_system::instance()) ||
+        if (has_capability('block/iomad_company_admin:company_add', $systemcontext) ||
             $manageruser = $DB->get_records('company_users', ['userid' => $USER->id, 'managertype' => 1])) {
             $myapprovallevel = "company";
         } else if ($manageruser = $DB->get_records('company_users', ['userid' => $USER->id, 'managertype' => 2])) {
@@ -169,7 +173,6 @@ if (!$trainingevent = $DB->get_record('trainingevent', ['id' => $cm->instance]))
                     throw new coding_exception("Negative duration is not supported yet.");
                 }
                 if ($calendarevent->courseid != 0) {
-                    $coursecontext = context_course::instance($calendarevent->courseid);
                     $ev->add_property('categories', format_string($course->shortname));
                 }
                 $ical->add_component($ev);
@@ -240,7 +243,7 @@ if (!$trainingevent = $DB->get_record('trainingevent', ['id' => $cm->instance]))
                         // Fire an event for this.
                         $eventother = ['choseneventid' => $chosenevent->id,
                                        'waitlisted' => 0];
-                        $event = \mod_trainingevent\event\attendance_changed::create(['context' => context_module::instance($id),
+                        $event = \mod_trainingevent\event\attendance_changed::create(['context' => $context,
                                                                                       'userid' => $USER->id,
                                                                                       'relateduserid' => $userid,
                                                                                       'objectid' => $trainingevent->id,
@@ -257,7 +260,7 @@ if (!$trainingevent = $DB->get_record('trainingevent', ['id' => $cm->instance]))
                         // Fire an event for this.
                         $eventother = ['choseneventid' => $chosenevent->id,
                                        'waitlisted' => 0];
-                        $event = \block_iomad_approve_access\event\manager_approved::create(['context' => context_module::instance($id),
+                        $event = \block_iomad_approve_access\event\manager_approved::create(['context' => $context,
                                                                                              'userid' => $USER->id,
                                                                                              'relateduserid' => $userid,
                                                                                              'objectid' => $chosenevent->id,
@@ -296,13 +299,13 @@ if (!$trainingevent = $DB->get_record('trainingevent', ['id' => $cm->instance]))
 
                 // Fire an event for this.
                 $eventother = ['waitlisted' => $currentrecord->waitlisted];
-                $event = \mod_trainingevent\event\user_removed::create(['context' => context_module::instance($id),
-                                                                              'userid' => $USER->id,
-                                                                              'relateduserid' => $userid,
-                                                                              'objectid' => $trainingevent->id,
-                                                                              'courseid' => $trainingevent->course,
-                                                                              'companyid' => $usercompany->id,
-                                                                              'other' => $eventother]);
+                $event = \mod_trainingevent\event\user_removed::create(['context' => $context,
+                                                                        'userid' => $USER->id,
+                                                                        'relateduserid' => $userid,
+                                                                        'objectid' => $trainingevent->id,
+                                                                        'courseid' => $trainingevent->course,
+                                                                        'companyid' => $usercompany->id,
+                                                                        'other' => $eventother]);
                 $event->trigger();
             }
         }
@@ -336,13 +339,13 @@ if (!$trainingevent = $DB->get_record('trainingevent', ['id' => $cm->instance]))
 
                     // Fire an event for this.
                     $eventother = ['waitlisted' => 0];
-                    $event = \mod_trainingevent\event\user_added::create(['context' => context_module::instance($id),
-                                                                                'userid' => $USER->id,
-                                                                                'relateduserid' => $userid,
-                                                                                'objectid' => $trainingevent->id,
-                                                                                'companyid' => $usercompany->id,
-                                                                                'courseid' => $trainingevent->course,
-                                                                                'other' => $eventother]);
+                    $event = \mod_trainingevent\event\user_attending::create(['context' => $context,
+                                                                              'userid' => $USER->id,
+                                                                              'relateduserid' => $userid,
+                                                                              'objectid' => $trainingevent->id,
+                                                                              'companyid' => $usercompany->id,
+                                                                              'courseid' => $trainingevent->course,
+                                                                              'other' => $eventother]);
                     $event->trigger();
 
                 } else if (($trainingevent->approvaltype == 3 || $trainingevent->approvaltype == 2)&& $myapprovallevel == "department") {
@@ -351,7 +354,7 @@ if (!$trainingevent = $DB->get_record('trainingevent', ['id' => $cm->instance]))
 
                     // Fire an event for this.
                     $eventother = ['waitlisted' => 0];
-                    $event = \block_iomad_approve_access\event\manager_approved::create(['context' => context_module::instance($id),
+                    $event = \block_iomad_approve_access\event\manager_approved::create(['context' => $context,
                                                                                          'userid' => $USER->id,
                                                                                          'relateduserid' => $userid,
                                                                                          'objectid' => $trainingevent->id,
@@ -389,7 +392,7 @@ if (!$trainingevent = $DB->get_record('trainingevent', ['id' => $cm->instance]))
                     $DB->delete_records('trainingevent_users', ['trainingeventid' => $trainingevent->id]);
 
                     // Fire an event for this.
-                    $event = \block_iomad_approve_access\event\trainingevent_reset::create(['context' => context_module::instance($id),
+                    $event = \block_iomad_approve_access\event\trainingevent_reset::create(['context' => $context,
                                                                                             'userid' => $USER->id,
                                                                                             'relateduserid' => $USER->id,
                                                                                             'objectid' => $trainingevent->id,
@@ -658,12 +661,10 @@ if (!$trainingevent = $DB->get_record('trainingevent', ['id' => $cm->instance]))
         // Output the attendees.
         if (!empty($view) && has_capability('mod/trainingevent:viewattendees', $context)) {
             // Get the associated department id.
-            $companyid = iomad::get_my_companyid($systemcontext);
-            $company = new company($companyid);
             $parentlevel = company::get_company_parentnode($company->id);
             $companydepartment = $parentlevel->id;
 
-            if (has_capability('block/iomad_company_admin:edit_all_departments', context_system::instance())) {
+            if (has_capability('block/iomad_company_admin:edit_all_departments', $contextsystem)) {
                 $userhierarchylevel = $parentlevel->id;
             } else {
                 $userlevel = $company->get_userlevel($USER);
@@ -749,10 +750,8 @@ if (!$trainingevent = $DB->get_record('trainingevent', ['id' => $cm->instance]))
             $selectsql = "DISTINCT u.*, " . $trainingevent->course . " AS courseid";
             $fromsql = " {user} u
                          JOIN {trainingevent_users} teu ON (u.id = teu.userid)";
-                         
-            $coursecontext = context_course::instance($trainingevent->course);
-                         
-            if(has_capability('mod/trainingevent:viewallattendees', $coursecontext)) {
+
+            if (has_capability('mod/trainingevent:viewallattendees', $coursecontext)) {
                 $wheresql = "teu.trainingeventid = :event
                             AND teu.waitlisted = :waitlisted"; 
             } else {
