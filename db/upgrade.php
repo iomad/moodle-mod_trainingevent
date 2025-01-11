@@ -253,5 +253,32 @@ function xmldb_trainingevent_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2025010600, 'trainingevent');
     }
 
+    if ($oldversion < 2025011000) {
+
+        // Define field approved to be added to trainingevent_users.
+        $table = new xmldb_table('trainingevent_users');
+        $field = new xmldb_field('approved', XMLDB_TYPE_INTEGER, '1', null, null, null, '0', 'waitlisted');
+
+        // Conditionally launch add field approved.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Define field booking_notes_format to be dropped from trainingevent_users.
+        $table = new xmldb_table('trainingevent_users');
+        $field = new xmldb_field('booking_notes_format');
+
+        // Conditionally launch drop field booking_notes_format.
+        if ($dbman->field_exists($table, $field)) {
+            $dbman->drop_field($table, $field);
+        }
+
+        // Mark all current records for the training events users as approved.
+        $DB->set_field('trainingevent_users', 'approved', 1);
+
+        // Trainingevent savepoint reached.
+        upgrade_mod_savepoint(true, 2025011000, 'trainingevent');
+    }
+
     return $result;
 }

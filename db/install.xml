@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="mod/trainingevent/db" VERSION="20250106" COMMENT="XMLDB file for Moodle mod/trainingevent"
+<XMLDB PATH="mod/trainingevent/db" VERSION="20250110" COMMENT="XMLDB file for Moodle mod/trainingevent"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
 >
@@ -37,9 +37,9 @@
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="userid" TYPE="int" LENGTH="20" NOTNULL="true" SEQUENCE="false" COMMENT="User id foreign key"/>
         <FIELD NAME="booking_notes" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="additional notes for the booking"/>
-        <FIELD NAME="booking_notes_format" TYPE="int" LENGTH="4" NOTNULL="false" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="trainingeventid" TYPE="int" LENGTH="20" NOTNULL="false" SEQUENCE="false" COMMENT="Courseclassroom foreign key"/>
         <FIELD NAME="waitlisted" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="This user is currently approved and waiting to be trained"/>
+        <FIELD NAME="approved" TYPE="int" LENGTH="1" NOTNULL="false" DEFAULT="0" SEQUENCE="false" COMMENT="whether the record has been approved or not."/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>

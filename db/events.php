@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Add event handlers for the quiz
+ * Add event handlers for the trainingevent
  *
  * @package    mod_trainingevent
  * @copyright  2022 Derick Turner
@@ -37,6 +37,20 @@ $observers = array(
     array(
         'eventname'   => '\mod_trainingevent\event\user_removed',
         'callback'    => 'mod_trainingevent_observer::user_removed',
+        'includefile' => '/mod/trainingevent/classes/observer.php',
+        'internal'    => false,
+    ),
+
+    array(
+        'eventname'   => '\mod_trainingevent\event\attendance_requested',
+        'callback'    => 'mod_trainingevent_observer::attendance_requested',
+        'includefile' => '/mod/trainingevent/classes/observer.php',
+        'internal'    => false,
+    ),
+
+    array(
+        'eventname'   => '\mod_trainingevent\event\attendance_withdrawn',
+        'callback'    => 'mod_trainingevent_observer::attendance_withdrawn',
         'includefile' => '/mod/trainingevent/classes/observer.php',
         'internal'    => false,
     ),

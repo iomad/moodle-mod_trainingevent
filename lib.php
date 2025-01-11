@@ -335,13 +335,119 @@ function trainingevent_event_clashes($event, $userid) {
     }
 }
 
-
+/****
+ * Processes anything else that needs to happen when the trainingevent_user_attending event is fired.
+ *
+ */
 function trainingevent_user_attending($event) {
     global $DB, $CFG;
+
+    require_once($CFG->dirroot.'/calendar/lib.php');
 
     // Does the training event even exist?
     if (!$trainingevent = $DB->get_record('trainingevent', ['id' => $event->objectid])) {
         return false;
+    }
+
+    // Does the user exist?
+    if (!$user = $DB->get_record('user', ['id' => $event->relateduserid])) {
+        return false;
+    }
+
+    // Does the course exist?
+    if (!$course = $DB->get_record('course', ['id' => $event->courseid])) {
+        return false;
+    }
+
+    // Does the location exist?
+    if (!$location = $DB->get_record('classroom', ['id' => $trainingevent->classroomid])) {
+        return false;
+    }
+
+    // Set the company.
+    $company = new company($event->companyid);
+
+    // Set the location time.
+    $location->time = date($CFG->iomad_date_format . ' \a\t H:i', $trainingevent->startdatetime);
+
+    // Is it only onto the waiting list?
+    if (!empty($event->other['waitlisted'])) {
+
+        // Send the added to waiting list email.
+        EmailTemplate::send('user_signed_up_to_waitlist', array('course' => $course,
+                                                                'user' => $user,
+                                                                'classroom' => $location,
+                                                                'company' => $company,
+                                                                'event' => $event));
+
+        // Go no further.
+        return;
+    }
+
+    // Send an email as long as it hasn't already started.
+    if ($trainingevent->startdatetime > $event->timecreated) {
+        EmailTemplate::send('user_signed_up_for_event', array('course' => $course,
+                                                              'user' => $user,
+                                                              'classroom' => $location,
+                                                              'company' => $company,
+                                                              'event' => $event));
+    }
+
+    // Add to the users calendar.
+    $calendarevent = (object) [];
+    $calendarevent->eventtype = 'user';
+    $calendarevent->type = CALENDAR_EVENT_TYPE_ACTION; // This is used for events we only want to display on the calendar, and are not needed on the block_myoverview.
+    $calendarevent->name = get_string('calendartitle', 'trainingevent',
+                                      (object) ['coursename' => format_string($course->fullname),
+                                                'eventname' => format_string($trainingevent->name)]);
+    $calendarevent->description = format_module_intro('trainingevent', $trainingeventevent, $event->contextinstanceid, false);
+    $calendarevent->format = FORMAT_HTML;
+    $eventlocation = format_string($location->name);
+    if (!empty($location->address)) {
+        $eventlocation .= ", " . format_string($location->address);
+    }
+    if (!empty($location->city)) {
+        $eventlocation .= ", " . format_string($location->city);
+    }
+    if (!empty($location->country)) {
+        $eventlocation .= ", " . format_string($location->country);
+    }
+    if (!empty($location->postcode)) {
+        $eventlocation .= ", " . format_string($location->postcode);
+    }
+    $calendarevent->location = $eventlocation; 
+    $calendarevent->courseid = 0;
+    $calendarevent->groupid = 0;
+    $calendarevent->userid = $user->id;
+    $calendarevent->modulename = 'trainingevent';
+    $calendarevent->instance = $trainingevent->id;
+    $calendarevent->timestart = $trainingevent->startdatetime;
+    $calendarevent->visible = instance_is_visible('trainingevent', $trainingevent);
+    $calendarevent->timeduration = $trainingevent->enddatetime - $trainingevent->startdatetime;
+
+    calendar_event::create($calendarevent, false);
+
+    // Do we need to notify teachers?
+    if (!empty($trainingevent->emailteachers)) {
+        // Are we using groups?
+        $usergroups = groups_get_user_groups($course->id, $user->id);
+        $userteachers = [];
+        foreach ($usergroups as $usergroup => $junk) {
+            $userteachers = $userteachers +
+                            get_enrolled_users(context_course::instance($course->id), 'mod/trainingevent:viewattendees', $usergroup);
+        } 
+        foreach ($userteachers as $userteacher) {
+
+            // Send an email as long as it hasn't already started.
+            if ($trainingevent->startdatetime > time()) {
+                EmailTemplate::send('user_signed_up_for_event_teacher', ['course' => $course,
+                                                                         'approveuser' => $user,
+                                                                         'user' => $userteacher,
+                                                                         'classroom' => $location,
+                                                                         'company' => $company,
+                                                                         'event' => $event]);
+            }
+        }
     }
 
     // Is the event exclusive?
@@ -353,24 +459,41 @@ function trainingevent_user_attending($event) {
     if ($exclusiveevents = $DB->get_records('trainingevent', ['course' => $trainingevent->course, 'isexclusive' => 1])) {
         // Is the user on a waitlist?
         foreach ($exclusiveevents as $exclusiveevent) {
-            $DB->delete_records('trainingevent_users', ['trainingeventid' => $exclusiveevent->id, 'userid' => $event->userid, 'waitlisted' => 1]);
+            $DB->delete_records('trainingevent_users', ['trainingeventid' => $exclusiveevent->id,
+                                                        'userid' => $event->relateduserid,
+                                                        'waitlisted' => 1]);
         }
-    } else {
-        return;
     }
+    return;
 }
 
+/**
+ * Processes anything else that needs to happen when the trainingevent_user_removed event is fired.
+ *
+ */
 function trainingevent_user_removed($event) {
     global $DB, $CFG;
+
+    require_once($CFG->dirroot.'/calendar/lib.php');
 
     // Does the training event even exist?
     if (!$trainingevent = $DB->get_record('trainingevent', ['id' => $event->objectid])) {
         return false;
     }
 
-    // Does it have a waiting list?
-    if (empty($trainingevent->haswaitinglist)) {
-        return;
+    // Does the user exist?
+    if (!$user = $DB->get_record('user', ['id' => $event->relateduserid])) {
+        return false;
+    }
+
+    // Does the course exist?
+    if (!$course = $DB->get_record('course', ['id' => $event->courseid])) {
+        return false;
+    }
+
+    // Does the location exist?
+    if (!$location = $DB->get_record('classroom', ['id' => $trainingevent->classroomid])) {
+        return false;
     }
 
     // Is this removal from the waiting list?
@@ -378,14 +501,66 @@ function trainingevent_user_removed($event) {
         return;
     }
 
+    // Set the company.
+    $company = new company($event->companyid);
+
+    // Send an email as long as it hasn't already started.
+    if ($event->startdatetime > time()) {
+        $location->time = date($CFG->iomad_date_format . ' \a\t H:i', $trainingevent->startdatetime);
+        if ($event->other['waitinglisted']) {
+            $emailtemplatename = "user_removed_from_event_waitlist";
+        } else {
+            $emailtemplatename = "user_removed_from_event";
+        }
+        EmailTemplate::send($emailtemplatename, ['course' => $course,
+                                                 'user' => $user,
+                                                 'classroom' => $location,
+                                                 'company' => $company,
+                                                 'event' => $event]);
+    }
+
+    // Remove from the users calendar.
+    if ($calendareventrec = $DB->get_record('event',['userid' => $user->id,
+                                                     'courseid' => 0,
+                                                     'modulename' => 'trainingevent',
+                                                     'instance' => $trainingevent->id])) {
+        $calendarevent = calendar_event::load($calendareventrec->id);
+        $calendarevent->delete(true);
+    }
+
+    // Do we need to notify teachers?
+    if (!empty($trainingevent->emailteachers)) {
+        // Are we using groups?
+        $usergroups = groups_get_user_groups($course->id, $user->id);
+        $userteachers = [];
+        foreach ($usergroups as $usergroup => $junk) {
+            $userteachers = $userteachers +
+                            get_enrolled_users(context_course::instance($course->id), 'mod/trainingevent:viewattendees', $usergroup);
+        } 
+        foreach ($userteachers as $userteacher) {
+
+            // Send an email as long as it hasn't already started.
+            if ($event->startdatetime > time()) {
+                EmailTemplate::send('user_removed_from_event_teacher', ['course' => $course,
+                                                                        'approveuser' => $user,
+                                                                        'user' => $userteacher,
+                                                                        'classroom' => $location,
+                                                                        'company' => $company,
+                                                                        'event' => $event]);
+            }
+        }
+    }
+
     // Is anyone on the waiting list?
-    $waitlistusers = $DB->get_records('trainingevent_users', ['trainingeventid' => $trainingevent->id, 'waitlisted' => 1], 'id ASC');
+    $waitlistusers = $DB->get_records('trainingevent_users', ['trainingeventid' => $trainingevent->id,
+                                                              'waitlisted' => 1], 'id ASC');
     if (empty($waitlistusers)) {
         return;
     } else {
         // Check if there is space.
-        $attending = $DB->count_records('trainingevent_users', array('trainingeventid' => $trainingevent->id, 'waitlisted' => 0));
-        $location = $DB->get_record('classroom', ['id' => $trainingevent->classroomid]);
+        $attending = $DB->count_records('trainingevent_users', ['trainingeventid' => $trainingevent->id,
+                                                                'waitlisted' => 0,
+                                                                'approved' => 1]);
 
         // Work out how many we can add to the event.
         if (!empty($trainingevent->coursecapacity)) {
@@ -408,7 +583,9 @@ function trainingevent_user_removed($event) {
                 // Remove the user from any other waitinglists in this course which are exclusive.
                 if ($otherevents = $DB->get_records('trainingevent', ['course' => $trainingevent->course, 'isexclusive' => 1])) {
                     foreach ($otherevents as $otherevent) {
-                        $DB->delete_records('trainingevent_users', ['trainingeventid' => $otherevent->id, 'userid' => $waitlistuser->userid, 'waitlisted' => 1]);
+                        $DB->delete_records('trainingevent_users', ['trainingeventid' => $otherevent->id,
+                                                                    'userid' => $waitlistuser->userid,
+                                                                    'waitlisted' => 1]);
                     }
                 } 
             }
@@ -417,77 +594,232 @@ function trainingevent_user_removed($event) {
             $context = context_course::instance($trainingevent->course);
             $user = $DB->get_record('user', ['id' => $waitlistuser->userid]);
             $usercompany = new company($location->companyid);
-            $location->time = date($CFG->iomad_date_format . ' \a\t H:i', $trainingevent->startdatetime);
-
-            // Send an email as long as it hasn't already started.
-            if ($trainingevent->startdatetime > time()) {
-                EmailTemplate::send('user_signed_up_for_event', array('course' => $course,
-                                                                      'user' => $user,
-                                                                      'classroom' => $location,
-                                                                      'company' => $usercompany,
-                                                                      'event' => $trainingevent));
-            }
+            $usercompany = company::by_userid($user->id);
 
             // Fire an event for this.
-            $moodleevent = \mod_trainingevent\event\user_attending::create(array('context' => context_module::instance($event->contextinstanceid),
-                                                                                 'userid' => $user->id,
-                                                                                 'objectid' => $trainingevent->id,
-                                                                                 'courseid' => $trainingevent->course));
+            $eventother = ['waitlisted' => 0];
+            $moodleevent = \mod_trainingevent\event\user_attending::create(['context' => context_module::instance($event->contextinstanceid),
+                                                                            'userid' => $user->id,
+                                                                            'objectid' => $trainingevent->id,
+                                                                            'companyid' => $usercompany->id,
+                                                                            'courseid' => $trainingevent->course,
+                                                                            'other' => $eventother]);
             $moodleevent->trigger();
+        }
+    }
 
-            // Add to the users calendar.
-            $calendarevent = (object) [];
-            $calendarevent->eventtype = 'user';
-            $calendarevent->type = CALENDAR_EVENT_TYPE_ACTION; // This is used for events we only want to display on the calendar, and are not needed on the block_myoverview.
-            $calendarevent->name = get_string('calendartitle', 'trainingevent', (object) ['coursename' => format_string($course->fullname), 'eventname' => format_string($trainingevent->name)]);
-            $calendarevent->description = format_module_intro('trainingevent', $trainingevent, $event->contextinstanceid, false);
-            $calendarevent->format = FORMAT_HTML;
-            $eventlocation = format_string($location->name);
-            if (!empty($location->address)) {
-                $eventlocation .= ", " . format_string($location->address);
-            }
-            if (!empty($location->city)) {
-                $eventlocation .= ", " . format_string($location->city);
-            }
-            if (!empty($location->country)) {
-                $eventlocation .= ", " . format_string($location->country);
-            }
-            if (!empty($location->postcode)) {
-                $eventlocation .= ", " . format_string($location->postcode);
-            }
-            $calendarevent->location = $eventlocation; 
-            $calendarevent->courseid = 0;
-            $calendarevent->groupid = 0;
-            $calendarevent->userid = $user->id;
-            $calendarevent->modulename = 'trainingevent';
-            $calendarevent->instance = $trainingevent->id;
-            $calendarevent->timestart = $trainingevent->startdatetime;
-            $calendarevent->visible = instance_is_visible('trainingevent', $trainingevent);
-            $calendarevent->timeduration = $trainingevent->enddatetime - $trainingevent->startdatetime;
+    return;
+}
 
-            calendar_event::create($calendarevent, false);
+/**
+ * Processes anything else that needs to happen when the trainingevent_manager_approved event is fired.
+ *
+ */
+function trainingevent_manager_approved($event) {
+    global $DB, $CFG;
 
-            // Do we need to notify teachers?
-            if (!empty($trainingevent->emailteachers)) {
-                // Are we using groups?
-                $usergroups = groups_get_user_groups($course->id, $user->id);
-                $userteachers = [];
-                foreach ($usergroups as $usergroup => $junk) {
-                    $userteachers = $userteachers + get_enrolled_users($context, 'mod/trainingevent:viewattendees', $usergroup);
-                } 
-                foreach ($userteachers as $userteacher) {
+    // Does the training event even exist?
+    if (!$trainingevent = $DB->get_record('trainingevent', ['id' => $event->objectid])) {
+        return false;
+    }
 
-                    // Send an email as long as it hasn't already started.
-                    if ($trainingevent->startdatetime > time()) {
-                        EmailTemplate::send('user_signed_up_for_event_teacher', array('course' => $course,
-                                                                                      'approveuser' => $user,
-                                                                                      'user' => $userteacher,
-                                                                                      'classroom' => $location,
-                                                                                      'company' => $usercompany,
-                                                                                      'event' => $trainingevent));
+    // Does the user exist?
+    if (!$user = $DB->get_record('user', ['id' => $event->relateduserid])) {
+        return false;
+    }
+
+    // Does the course exist?
+    if (!$course = $DB->get_record('course', ['id' => $event->courseid])) {
+        return false;
+    }
+
+    // Does the location exist?
+    if (!$location = $DB->get_record('classroom', ['id' => $trainingevent->classroomid])) {
+        return false;
+    }
+
+    // Is this removal from the waiting list?
+    if (!empty($event->other['waitlisted'])) {
+        return;
+    }
+
+    // Set the company.
+    $company = new company($event->companyid);
+
+    // Add the time to the location object.
+    $location->time = date($CFG->iomad_date_format . ' \a\t H:i', $trainingevent->startdatetime);
+
+    if (!$userbooking = $DB->get_record('block_iomad_approve_access', ['activityid' => $trainingevent->id,
+                                                                       'userid' => $user->id])) {
+        if (!$DB->insert_record('block_iomad_approve_access', ['activityid' => $trainingevent->id,
+                                                               'userid' => $user->id,
+                                                               'courseid' => $trainingevent->course,
+                                                               'tm_ok' => 0,
+                                                               'manager_ok' => 1,
+                                                               'companyid' => $company->id])) {
+            throw new moodle_exception('error creating attendance record');
+        } else {
+            // Send an email as long as it hasn't already started.
+            if ($trainingevent->startdatetime > time()) {
+                // Get the list of managers we need to send an email to.
+                $mymanagers = $company->get_my_managers($user->id, 1);
+                foreach ($mymanagers as $mymanager) {
+                    if ($manageruser = $DB->get_record('user', array('id' => $mymanager->userid))) {
+                        EmailTemplate::send('course_classroom_approval', ['course' => $course,
+                                                                          'user' => $manageruser,
+                                                                          'approveuser' => $user,
+                                                                          'event' => $trainingevent,
+                                                                          'company' => $company,
+                                                                          'classroom' => $location]);
                     }
                 }
             }
         }
     }
+
+    return;
+}
+
+/**
+ * Processes anything else that needs to happen when the trainingevent_attendance_withdrawn event is fired.
+ *
+ */
+function trainingevent_attendance_withdrawn($event) {
+    global $DB, $CFG;
+
+    // Does the training event even exist?
+    if (!$trainingevent = $DB->get_record('trainingevent', ['id' => $event->objectid])) {
+        return false;
+    }
+
+    // Does the user exist?
+    if (!$user = $DB->get_record('user', ['id' => $event->relateduserid])) {
+        return false;
+    }
+
+    // Does the course exist?
+    if (!$course = $DB->get_record('course', ['id' => $event->courseid])) {
+        return false;
+    }
+
+    // Does the location exist?
+    if (!$location = $DB->get_record('classroom', ['id' => $trainingevent->classroomid])) {
+        return false;
+    }
+
+    // Is this removal from the waiting list?
+    if (!empty($event->other['waitlisted'])) {
+        return;
+    }
+
+    // Set the company.
+    $company = new company($event->companyid);
+
+    // Add the time to the location object.
+    $location->time = date($CFG->iomad_date_format . ' \a\t H:i', $trainingevent->startdatetime);
+
+    if ($userbooking = $DB->get_record('block_iomad_approve_access', ['activityid' => $trainingevent->id,
+                                                                      'userid' => $user->id])) {
+        $DB->delete_records('block_iomad_approve_access', ['id' => $userbooking->id]);
+    }
+
+    return;
+}
+/**
+ * Processes anything else that needs to happen when the trainingevent_attendance_changed event is fired.
+ *
+ */
+function trainingevent_attendance_changed($event) {
+    global $DB, $CFG;
+
+    // Does the training event even exist?
+    if (!$trainingevent = $DB->get_record('trainingevent', ['id' => $event->objectid])) {
+        return false;
+    }
+
+    // Does the training event even exist?
+    if (!$chosenevent = $DB->get_record('trainingevent', ['id' => $event->other['chosenevent']])) {
+        return false;
+    }
+
+    // Does the user exist?
+    if (!$user = $DB->get_record('user', ['id' => $event->relateduserid])) {
+        return false;
+    }
+
+    // Does the course exist?
+    if (!$course = $DB->get_record('course', ['id' => $event->courseid])) {
+        return false;
+    }
+
+    // Does the location exist?
+    if (!$location = $DB->get_record('classroom', ['id' => $trainingevent->classroomid])) {
+        return false;
+    }
+
+    // Does the location exist?
+    if (!$chosenlocation = $DB->get_record('classroom', ['id' => $chosenevent->classroomid])) {
+        return false;
+    }
+
+    // Set the company.
+    $company = new company($event->companyid);
+
+    // Add the time to the location object.
+    $location->time = date($CFG->iomad_date_format . ' \a\t H:i', $trainingevent->startdatetime);
+    $chosenlocation->time = date($CFG->iomad_date_format . ' \a\t H:i', $chosenevent->startdatetime);
+
+    // Remove any outstanding approval requests.
+    if ($trainingevent->approvaltype != 0) {
+        $DB->delete_records('block_iomad_approve_access', array('userid' => $user->id,
+                                                                'activityid' => $trainingevent->id));
+    }
+ 
+    // Do we need to notify teachers?
+    if (!empty($trainingevent->emailteachers)) {
+        // Send an email as long as it hasn't already started.
+        if ($trainingevent->startdatetime > time()) {
+
+            // Send the user the emails.
+            EmailTemplate::send('user_removed_from_event', ['course' => $course,
+                                                            'user' => $user,
+                                                            'classroom' => $location,
+                                                            'company' => $company,
+                                                            'event' => $trainingevent]);
+            EmailTemplate::send('user_signed_up_for_event', ['course' => $course,
+                                                             'user' => $user,
+                                                             'classroom' => $chosenlocation,
+                                                             'company' => $company,
+                                                             'event' => $chosenevent]);
+
+            // Do we send emails to teachers?
+            // Are we using groups?
+            $usergroups = groups_get_user_groups($course->id, $user->id);
+            $userteachers = [];
+            foreach ($usergroups as $usergroup => $junk) {
+                $userteachers = $userteachers +
+                                get_enrolled_users(context_course::instance($course->id), 'mod/trainingevent:viewattendees', $usergroup);
+            } 
+            foreach ($userteachers as $userteacher) {
+                if (!empty($trainingevent->emailteachers)) {
+                    EmailTemplate::send('user_removed_from_event_teacher', ['course' => $course,
+                                                                            'approveuser' => $user,
+                                                                            'user' => $userteacher,
+                                                                            'classroom' => $location,
+                                                                            'company' => $company,
+                                                                            'event' => $trainingevent]);
+                }                
+                if (!empty($chosenevent->emailteachers)) {
+                    EmailTemplate::send('user_signed_up_for_event_teacher', ['course' => $course,
+                                                                             'approveuser' => $user,
+                                                                             'user' => $userteacher,
+                                                                             'classroom' => $chosenlocation,
+                                                                             'company' => $company,
+                                                                             'event' => $chosenevent]);
+                }
+            }
+        }
+    }
+
+    return;
 }

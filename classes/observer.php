@@ -40,13 +40,46 @@ class mod_trainingevent_observer {
     }
 
     /**
-     * Triggered via block_iomad_company_admin::company_created event.
+     * Triggered via mod_trainingevent::user_removed event.
      *
      * @param \mod_trainingevent\event\user_removed $event
      * @return bool true on success.
      */
     public static function user_removed($event) {
         trainingevent_user_removed($event);
+        return true;
+    }
+
+    /**
+     * Triggered via mod_trainingevent::attendance_changed event.
+     *
+     * @param \mod_trainingevent\event\attendance_changed $event
+     * @return bool true on success.
+     */
+    public static function attendance_changed($event) {
+        trainingevent_attendance_changed($event);
+        return true;
+    }
+
+    /**
+     * Triggered via mod_trainingevent::attendance_requested event.
+     *
+     * @param \mod_trainingevent\event\attendance_requested $event
+     * @return bool true on success.
+     */
+    public static function attendance_requested($event) {
+        trainingevent_attendance_requested($event);
+        return true;
+    }
+
+    /**
+     * Triggered via mod_trainingevent::attendance_withdrawn event.
+     *
+     * @param \mod_trainingevent\event\attendance_withdrawn $event
+     * @return bool true on success.
+     */
+    public static function attendance_withdrawn($event) {
+        trainingevent_attendance_withdrawn($event);
         return true;
     }
 }
