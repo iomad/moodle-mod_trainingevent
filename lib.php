@@ -344,6 +344,12 @@ function trainingevent_user_attending($event) {
 
     require_once($CFG->dirroot.'/calendar/lib.php');
 
+    // Check if we need to send emails or not as that may be handled elsewhere.
+    $sendemails = true;
+    if (!empty($event->other['skipemails'])) {
+        $sendemails = false;
+    }
+
     // Does the training event even exist?
     if (!$trainingevent = $DB->get_record('trainingevent', ['id' => $event->objectid])) {
         return false;
@@ -371,7 +377,8 @@ function trainingevent_user_attending($event) {
     $location->time = date($CFG->iomad_date_format . ' \a\t H:i', $trainingevent->startdatetime);
 
     // Is it only onto the waiting list?
-    if (!empty($event->other['waitlisted'])) {
+    if ($sendemails &&
+        !empty($event->other['waitlisted'])) {
 
         // Send the added to waiting list email.
         EmailTemplate::send('user_signed_up_to_waitlist', array('course' => $course,
@@ -385,7 +392,8 @@ function trainingevent_user_attending($event) {
     }
 
     // Send an email as long as it hasn't already started.
-    if ($trainingevent->startdatetime > $event->timecreated) {
+    if ($sendemails &&
+        $trainingevent->startdatetime > $event->timecreated) {
         EmailTemplate::send('user_signed_up_for_event', array('course' => $course,
                                                               'user' => $user,
                                                               'classroom' => $location,
@@ -428,7 +436,8 @@ function trainingevent_user_attending($event) {
     calendar_event::create($calendarevent, false);
 
     // Do we need to notify teachers?
-    if (!empty($trainingevent->emailteachers)) {
+    if ($sendemails &&
+        !empty($trainingevent->emailteachers)) {
         // Are we using groups?
         $usergroups = groups_get_user_groups($course->id, $user->id);
         $userteachers = [];
@@ -457,11 +466,15 @@ function trainingevent_user_attending($event) {
 
     // Are there any other exclusive events on the same course?
     if ($exclusiveevents = $DB->get_records('trainingevent', ['course' => $trainingevent->course, 'isexclusive' => 1])) {
+
         // Is the user on a waitlist?
         foreach ($exclusiveevents as $exclusiveevent) {
             $DB->delete_records('trainingevent_users', ['trainingeventid' => $exclusiveevent->id,
                                                         'userid' => $event->relateduserid,
                                                         'waitlisted' => 1]);
+            // Delete any approval requests too.
+            $DB->delete_records('block_iomad_approve_access', ['activityid' => $exclusiveevent->id,
+                                                               'userid' => $user->id]);
         }
     }
     return;

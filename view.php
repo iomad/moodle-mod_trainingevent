@@ -109,13 +109,6 @@ if (!$trainingevent = $DB->get_record('trainingevent', ['id' => $cm->instance]))
         }
         $departmentid = $userhierarchylevel;
 
-        // Get the CMID.
-        $cmidinfo = $DB->get_record_sql("SELECT * FROM {course_modules}
-                                         WHERE instance = :eventid
-                                         AND module = ( SELECT id FROM {modules}
-                                           WHERE name = 'trainingevent')",
-                                        ['eventid' => $trainingevent->id]);
-
         // What is the users approval level, if any?
         if (has_capability('block/iomad_company_admin:company_add', $systemcontext) ||
             $manageruser = $DB->get_records('company_users', ['userid' => $USER->id, 'managertype' => 1])) {
@@ -202,17 +195,11 @@ if (!$trainingevent = $DB->get_record('trainingevent', ['id' => $cm->instance]))
         if (!empty($userid) &&
             !empty($chosen) &&
             $chosen != $trainingevent->id) {
+
             // We are moving a user to another event  check there is space.
             if (!$chosenevent = $DB->get_record('trainingevent', ['id' => $chosen])) {
                 throw new moodle_exception('chosen event is invalid');
             } else {
-                // Get the CMID.
-                $chosencmidinfo = $DB->get_record_sql("SELECT * FROM {course_modules}
-                                                       WHERE instance = :eventid
-                                                       AND module = ( SELECT id FROM {modules}
-                                                        WHERE name = 'trainingevent')",
-                                                      ['eventid' => $trainingevent->id]);
-
                 $chosenlocation = $DB->get_record('classroom', ['id' => $chosenevent->classroomid]);
                 $alreadyattending = $DB->count_records('trainingevent_users', ['trainingeventid' => $chosenevent->id, 'waitlisted' => 0, 'approved' => 1]);
                 $user = $DB->get_record('user', ['id' => $userid]);
@@ -442,7 +429,7 @@ if (!$trainingevent = $DB->get_record('trainingevent', ['id' => $cm->instance]))
                 $calendarevent->eventtype = 'trainingevent';
                 $calendarevent->type = CALENDAR_EVENT_TYPE_ACTION; // This is used for events we only want to display on the calendar, and are not needed on the block_myoverview.
                 $calendarevent->name = get_string('publishedtitle', 'trainingevent', (object) ['coursename' => format_string($course->fullname), 'eventname' => format_string($trainingevent->name)]);
-                $calendarevent->description = format_module_intro('trainingevent', $trainingevent, $cmidinfo->id, false);
+                $calendarevent->description = format_module_intro('trainingevent', $trainingevent, $cm->id, false);
                 $calendarevent->format = FORMAT_HTML;
                 $eventlocation = format_string($location->name);
                 if (!empty($location->address)) {
