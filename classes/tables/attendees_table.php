@@ -45,19 +45,34 @@ class attendees_table extends table_sql {
      * @return string HTML content to go inside the td.
      */
     public function col_fullname($row) {
-        global $DB, $id;
+        global $DB, $id, $company, $context;
 
-        $name = fullname($row, has_capability('moodle/site:viewfullnames', context_module::instance($id)));
-        // Pull booking notes to add to fullname column
-        $bookingnotes = $DB->get_field_sql("SELECT teu.booking_notes FROM {trainingevent_users} teu
-                                                 WHERE userid = :userid",
-                                                 ['userid' => $row->id]);
+        $name = fullname($row, has_capability('moodle/site:viewfullnames', $context));
+
+        // Set  up the booking notes popup.
         $tooltip = get_string('bookingnotes', 'mod_trainingevent');
-        if (!empty($bookingnotes)) {
-            $name .= "<a class='btn btn-link p-0' role='button' data-container='body' data-toggle='popover' data-placement='right' data-content='<div class=&quot;no-overflow&quot;><b>" . $tooltip . ":</b><br>" . $bookingnotes . "</div> ' data-html='true' tabindex='0' data-trigger='focus'>
-                     <i class='icon fa fa-exclamation-circle text-danger fa-fw ' title='$tooltip' role='img' aria-label='$tooltip'></i>
+
+        if (!$this->is_downloading()) {
+            // Add the booking notes.
+            $name .= "&nbsp
+                      <a class='btn btn-link p-0'
+                         role='button'
+                         data-container='body'
+                         data-toggle='popover'
+                         data-placement='right'
+                         data-content='<div class=\"no-overflow\">
+                                       <b>" . $tooltip . ":</b>
+                                       <br>" . $row->booking_notes . "</div> '
+                         data-html='true'
+                         tabindex='0'
+                         data-trigger='focus'>
+                     <i class='icon fa fa-exclamation-circle fa-fw '
+                        title='$tooltip'
+                        role='img'
+                        aria-label='$tooltip'></i>
                      </a>";
         }
+
         return $name;
     }
 
@@ -69,10 +84,7 @@ class attendees_table extends table_sql {
     public function col_bookingnotes($row) {
         global $id, $DB;
 
-        $bookingnotes = $DB->get_field_sql("SELECT teu.booking_notes FROM {trainingevent_users} teu
-                                                 WHERE userid = :userid",
-                                                 ['userid' => $row->id]);
-        return $bookingnotes;
+        return $row->booking_notes;
     }
 
     /**
@@ -81,10 +93,10 @@ class attendees_table extends table_sql {
      * @return string HTML content to go inside the td.
      */
     public function col_event($row) {
-        global $params, $id, $waitingoption, $event, $eventselect, $OUTPUT;
+        global $params, $id, $waitingoption, $trainingevent, $eventselect, $OUTPUT;
 
         if ($this->is_downloading()) {
-            return format_text($event->name);
+            return format_text($trainingevent->name);
         }
 
         if (has_capability('mod/trainingevent:add', context_module::instance($id))) {
@@ -95,7 +107,7 @@ class attendees_table extends table_sql {
                                                         'waiting' => $waitingoption]),
                                                        'chosenevent',
                                                        $eventselect,
-                                                       $event->id);
+                                                       $trainingevent->id);
             $select->formid = 'chooseevent'.$row->id;
             $select->attributes = ['onchange' => 'this.form.submit()']; 
             return html_writer::tag('div',
@@ -110,30 +122,55 @@ class attendees_table extends table_sql {
      * @return string HTML content to go inside the td.
      */
     public function col_action($row) {
-        global $params, $id, $waitingoption, $event, $eventselect, $OUTPUT, $numattending, $maxcapacity;
+        global $CFG, $company, $id, $waitingoption,
+               $numattending, $maxcapacity;
 
         $actionhtml = "";
         if ($this->is_downloading()) {
             return;
         }
         if (has_capability('mod/trainingevent:add', context_module::instance($id))) {
+            // Are we vieing the list on people on the waiting list?       
             if ($waitingoption && $numattending < $maxcapacity) {
-                $actionhtml = $OUTPUT->single_button(new moodle_url('view.php',
-                                                                     array('userid' => $row->id,
-                                                                           'id' => $id,
-                                                                           'action' => 'add',
-                                                                        'view' => 1 )),
-                                                                     get_string("add"));
-                $actionhtml .= "&nbsp";
+                $addurl = new moodle_url($CFG->wwwroot ."/mod/trainingevent/view.php",
+                                         ['userid' => $row->id,
+                                          'id' => $id,
+                                          'action' => 'add',
+                                          'view' => 1]);
+                $actionhtml .= "<a class='btn btn-link p-0'
+                                   role='button'
+                                   href='" . $addurl->out() ."'>
+                                  <i class='icon fa fa-plus fa-fw '
+                                     title='" . get_string('add') . "'
+                                     role='img'>
+                                  </i>
+                               </a>&nbsp";
             }
-            $actionhtml .= $OUTPUT->single_button(new moodle_url('view.php',
-                                                                  ['userid' => $row->id,
-                                                                   'id' => $id,
-                                                                   'action' => 'delete',
-                                                                   'view' => 1,
-                                                                   'waiting' => $waitingoption]),
-                                                                  get_string("remove", 'trainingevent'));
 
+            // Add the edit handler.
+            $updatetitle = get_string('updateattendance', 'trainingevent');
+            if (!empty($row->waitlisted)) {
+                $updatetitle = get_string('updatewaitlist', 'trainingevent');
+            }
+            $actionhtml .= "<a class='btn btn-link p-0'
+                               role='button'
+                               data-action='show-Attendanceform'
+                               data-companyid=." . $company->id ."
+                               data-trainingeventid='" . $row->trainingeventid . "'
+                               data-cmid='" . $id . "'
+                               data-waitlisted='" . $row->waitlisted . "'
+                               data-attendanceid='" . $row->attendanceid . "'
+                               data-approvaltype='" . $row->approvaltype . "'
+                               data-userid='" . $row->id . "'
+                               data-requesttype='0'
+                               data-dorefresh='0'
+                               href='#'>
+                              <i class='icon fa fa-cog fa-fw '
+                                 title='$updatetitle'
+                                 role='img'>
+                              </i>
+                           </a>";
+       
         }
         return $actionhtml;
     }
@@ -144,10 +181,10 @@ class attendees_table extends table_sql {
      * @return string HTML content to go inside the td.
      */
     public function col_grade($row) {
-        global $params, $id, $waitingoption, $event, $eventselect, $OUTPUT, $numattending, $maxcapacity;
+        global $params, $id, $waitingoption, $trainingevent, $eventselect, $OUTPUT, $numattending, $maxcapacity;
 
         $gradehtml = "";
-        $usergradeentry = grade_get_grades($event->course, 'mod', 'trainingevent', $event->id, $row->id);
+        $usergradeentry = grade_get_grades($trainingevent->course, 'mod', 'trainingevent', $trainingevent->id, $row->id);
 
         if ($this->is_downloading()) {
             return $usergradeentry->items[0]->grades[$row->id]->str_grade;

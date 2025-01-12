@@ -83,7 +83,6 @@ if (!$trainingevent = $DB->get_record('trainingevent', ['id' => $cm->instance]))
 
         // Page stuff.
         $url = new moodle_url('/mod/trainingevent/view.php', ['id' => $id]);
-        require_login($trainingevent->course, false, $cm); // Adds to $PAGE, creates $OUTPUT.
         $PAGE->set_url($url);
         $PAGE->set_title($trainingevent->name);
         $PAGE->requires->js_call_amd('mod_trainingevent/attendance', 'init');
@@ -546,7 +545,7 @@ if (!$trainingevent = $DB->get_record('trainingevent', ['id' => $cm->instance]))
 
         if (!$download) {
             if($buttons != null){
-                echo $PAGE->set_button($buttons);
+                $PAGE->set_button($buttons);
             }
             echo $OUTPUT->header();
             $buttonstring = '';
@@ -642,16 +641,13 @@ if (!$trainingevent = $DB->get_record('trainingevent', ['id' => $cm->instance]))
             ];
         }
 
-        // Output the view template
-        echo $OUTPUT->render_from_template('mod_trainingevent/view', $template);
-        
         // Output the attendees.
         if (!empty($view) && has_capability('mod/trainingevent:viewattendees', $context)) {
             // Get the associated department id.
             $parentlevel = company::get_company_parentnode($company->id);
             $companydepartment = $parentlevel->id;
 
-            if (has_capability('block/iomad_company_admin:edit_all_departments', $contextsystem)) {
+            if (has_capability('block/iomad_company_admin:edit_all_departments', $systemcontext)) {
                 $userhierarchylevel = $parentlevel->id;
             } else {
                 $userlevel = $company->get_userlevel($USER);
@@ -734,7 +730,14 @@ if (!$trainingevent = $DB->get_record('trainingevent', ['id' => $cm->instance]))
                             'email'];
             }
 
-            $selectsql = "DISTINCT u.*, " . $trainingevent->course . " AS courseid";
+            $selectsql = "DISTINCT u.*, " .
+                                   $trainingevent->course . " AS courseid, " .
+                                   $trainingevent->approvaltype . " AS approvaltype,
+                                   teu.booking_notes,
+                                   teu.trainingeventid,
+                                   teu.waitlisted,
+                                   teu.id AS attendanceid,
+                                   teu.approved";
             $fromsql = " {user} u
                          JOIN {trainingevent_users} teu ON (u.id = teu.userid)";
 
@@ -799,7 +802,12 @@ if (!$trainingevent = $DB->get_record('trainingevent', ['id' => $cm->instance]))
                 echo "<h3>".get_string('attendance', 'local_report_attendance')."</h3>";
             }
             $table->out($CFG->iomad_max_list_users, true);
+
+        } else {
+            // Output the view template
+            echo $OUTPUT->render_from_template('mod_trainingevent/view', $template);
         }
+
         if (!$download) {
             echo $OUTPUT->footer();
         }

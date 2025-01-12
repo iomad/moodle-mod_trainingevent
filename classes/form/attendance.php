@@ -59,6 +59,7 @@ class attendance extends dynamic_form {
         // Get the info from the form.
         $data = $this->get_data();
         $returnmessage = "";
+        $dorefresh = $data->dorefresh;
 
         if (!empty($data->attendanceid)) {
             $record = $DB->get_record('trainingevent_users', ['id' => $data->attendanceid,
@@ -75,6 +76,7 @@ class attendance extends dynamic_form {
 
             // Remove the user from the training event.
             $DB->delete_records('trainingevent_users', ['id' => $record->id]);
+            $dorefresh = true;
 
             if (!empty($record->approved)) {
                 // Fire an event if they were already approved.
@@ -105,6 +107,8 @@ class attendance extends dynamic_form {
         } else if (!empty($data->requesttype) &&
                    !empty($data->removeme)) {
             // User removing request - duplicate in case they were never actually added to the event.
+            $dorefresh = true;
+
             // Fire an event for this.
             $eventother = ['waitlisted' => $data->waitlisted];
             $event = \mod_trainingevent\event\attendance_withdrawn::create(['context' => context_module::instance($data->cmid),
@@ -168,6 +172,8 @@ class attendance extends dynamic_form {
                 // Add the record.
                 $record->id = $DB->insert_record('trainingevent_users', $record);
             } else {
+                // Updating an existing booking
+                $dorefesh = false;
                 $DB->update_record('trainingevent_users', $record);
                 $returnmessage = get_string('updateattendance_successful', 'mod_trainingevent');
             }
@@ -177,6 +183,7 @@ class attendance extends dynamic_form {
         return [
             'result' => true,
             'returnmessage' => $returnmessage,
+            'dorefresh' => $dorefresh
         ];
     }
 
@@ -206,6 +213,8 @@ class attendance extends dynamic_form {
         $mform->setType('requesttype', PARAM_INT);
         $mform->addElement('hidden', 'userid');
         $mform->setType('userid', PARAM_INT);
+        $mform->addElement('hidden', 'dorefresh');
+        $mform->setType('dorefresh', PARAM_BOOL);
 
         // Add the options field.
         $mform->addElement('textarea', 'booking_notes', get_string('bookingnotes', 'mod_trainingevent'), 'wrap="virtual" rows="5" cols="5"');
@@ -219,6 +228,7 @@ class attendance extends dynamic_form {
             $mform->addElement('hidden', 'removeme', 0);
             $mform->setType('removeme', PARAM_INT);
         }
+        //$mform->hideIf('removeme', 'infoonly', true);
     }
 
     /**
@@ -236,6 +246,7 @@ class attendance extends dynamic_form {
         $attendanceid = $this->optional_param('attendanceid', 0, PARAM_INT);
         $cmid = $this->optional_param('cmid', 0, PARAM_INT);
         $requesttype = $this->optional_param('requesttype', 0, PARAM_INT);
+        $dorefresh = $this->optional_param('dorefresh', false, PARAM_INT);
         $trainingeventid = $this->optional_param('trainingeventid', 0, PARAM_INT);
         $userid = $this->optional_param('userid', 0, PARAM_INT);
         $booking_notes = "";
@@ -255,6 +266,7 @@ class attendance extends dynamic_form {
             'booking_notes' => $booking_notes,
             'cmid' => $cmid,
             'requesttype' => $requesttype,
+            'dorefresh' => $dorefresh,
             'userid' => $userid,
             'trainingeventid' => $trainingeventid,
         ];

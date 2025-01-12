@@ -73,6 +73,7 @@ export const init = () => {
                        approvaltype: approvalType,
                        userid: showAttendanceform[i].getAttribute('data-userid'),
                        requesttype: showAttendanceform[i].getAttribute('data-requesttype'),
+                       dorefresh: showAttendanceform[i].getAttribute('data-dorefresh'),
                        },
                 modalConfig: {title},
                 returnFocus: showAttendanceform[i],
@@ -96,7 +97,9 @@ export const init = () => {
                         );
                     }
                 }
-                location.reload(false);
+                if (e.detail.dorefresh) {
+                    location.reload(false);
+                }
             });
         });
     }

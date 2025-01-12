@@ -218,8 +218,16 @@ function trainingevent_get_coursemodule_info($coursemodule) {
             ;
         }
         $template->usersattended = (time() > $trainingevent->startdatetime) ? 
-            $DB->get_record_sql("SELECT COUNT(*) as total FROM {course_modules_completion} WHERE coursemoduleid = (SELECT id FROM {course_modules} WHERE instance = :id AND module = (SELECT id FROM {modules} WHERE name = 'trainingevent'))", ["id" => $trainingevent->id])->total." " : null
-        ;
+                                    $DB->get_record_sql("SELECT COUNT(*) as total
+                                                         FROM {course_modules_completion}
+                                                         WHERE coursemoduleid = (
+                                                          SELECT id FROM {course_modules}
+                                                          WHERE instance = :id
+                                                          AND module = (
+                                                           SELECT id FROM {modules}
+                                                           WHERE name = 'trainingevent'))",
+                                                         ["id" => $trainingevent->id])->total." " :
+                                    null;
         $trainingevent->intro = $OUTPUT->render_from_template('mod_trainingevent/intro', $template);
 
         $info->content = null;
@@ -408,7 +416,7 @@ function trainingevent_user_attending($event) {
     $calendarevent->name = get_string('calendartitle', 'trainingevent',
                                       (object) ['coursename' => format_string($course->fullname),
                                                 'eventname' => format_string($trainingevent->name)]);
-    $calendarevent->description = format_module_intro('trainingevent', $trainingeventevent, $event->contextinstanceid, false);
+    $calendarevent->description = format_module_intro('trainingevent', $trainingevent, $event->contextinstanceid, false);
     $calendarevent->format = FORMAT_HTML;
     $eventlocation = format_string($location->name);
     if (!empty($location->address)) {
