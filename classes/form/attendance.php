@@ -133,7 +133,7 @@ class attendance extends dynamic_form {
 
                     // Fire an event for this.
                     $eventother = ['waitlisted' => $data->waitlisted];
-                    $event = \mod_trainingevent\event\manager_approved::create(['context' => context_module::instance($data->cmid),
+                    $event = \block_iomad_approve_access\event\manager_approved::create(['context' => context_module::instance($data->cmid),
                                                                                 'userid' => $data->userid,
                                                                                 'relateduserid' => $USER->id,
                                                                                 'objectid' => $data->trainingeventid,
@@ -221,7 +221,7 @@ class attendance extends dynamic_form {
         if (!empty($attending)) {
             $removemestring = get_string('unattend', 'mod_trainingevent');
             if ($approvaltype != 0) {
-                $removemestring = get_string('removerequest', 'mod_reainingevent');
+                $removemestring = get_string('removerequest', 'mod_trainingevent');
             }
             $mform->addElement('advcheckbox', 'removeme', $removemestring, ' ', [], [0,1]);
         } else {
