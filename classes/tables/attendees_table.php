@@ -162,6 +162,7 @@ class attendees_table extends table_sql {
                                data-attendanceid='" . $row->attendanceid . "'
                                data-approvaltype='" . $row->approvaltype . "'
                                data-userid='" . $row->id . "'
+                               data-courseid='" . $row->courseid . "'
                                data-requesttype='0'
                                data-dorefresh='0'
                                href='#'>

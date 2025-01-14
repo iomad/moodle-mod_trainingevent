@@ -193,7 +193,6 @@ if (!empty($userid) &&
     !empty($chosen) &&
     $chosen != $trainingevent->id) {
 
-error_log("moving them");
     // We are moving a user to another event  check there is space.
     if (!$chosenevent = $DB->get_record('trainingevent', ['id' => $chosen])) {
         throw new moodle_exception('chosen event is invalid');
@@ -210,19 +209,18 @@ error_log("moving them");
 
         // Check for availability.
         if (!empty($chosenlocation->isvirtual) || $alreadyattending < $chosenlocation->capacity) {
-error_log("there is capacity");
+
             // Deal with current record.
             if ($currentrecord = $DB->get_record('trainingevent_users', ['userid' => $userid,
                                                                          'trainingeventid' => $chosenevent->id])) {
-error_log("removing them from the current event");
-                $DB->delete_records('trainingevent_users', ['id' => $currentrecord->id]);
+                $DB->delete_records('trainingevent_users', ['userid' => $userid,
+                                                            'trainingeventid' => $chosenevent->id]);
             }
 
             // What kind of event is this?
             if ($chosenevent->approvaltype == 0 || $chosenevent->approvaltype == 4 || $myapprovallevel == "company" ||
                 ($chosenevent->approvaltype == 1 && $myapprovallevel == "department")) {
 
-error_log("fully approved already");
                 // We are fully approved!
                 $messagestring = get_string('usermovedsuccessfully', 'trainingevent');
                 $approved = 1;
@@ -241,7 +239,6 @@ error_log("fully approved already");
             } else if (($chosenevent->approvaltype == 3 || $chosenevent->approvaltype == 2)
                        && $myapprovallevel == "department") {
 
-error_log("more approval needed");
                 // More levels of approval are required.
                 $approved = 0;
 
@@ -259,7 +256,6 @@ error_log("more approval needed");
                 $event->trigger();
             }
 
-error_log("adding to chosen event $chosenevent->id");
             // Add to the chosen event.
             if (!$targetrecord = $DB->get_record('trainingevent_users', ['userid' => $userid,
                                                                          'trainingeventid' => $chosenevent->id])) {
@@ -268,9 +264,7 @@ error_log("adding to chosen event $chosenevent->id");
                                                            'booking_notes' => $currentrecord->booking_notes,
                                                            'waitlisted' => 0,
                                                            'approved' => $approved]);
-error_log("creating a record");
             } else {
-error_log("already got a record");
                 $targetrecord->waitlisted = 0;
                 $targetrecord->approved = $approved;
                 $DB->update_record('trainingevent_users', $targetrecord);
