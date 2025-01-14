@@ -928,3 +928,24 @@ function trainingevent_request_denied($event) {
 
     return;
 }
+
+/**
+ * Processes anything else that needs to happen when the core course_module_completion_updated event is fired.
+ *
+ */
+function trainingevent_course_module_completion_updated($event) {
+    global $DB, $CFG;
+
+    // Sanitise the data.
+    if (!$comprecord = $DB->get_record('course_modules_completion', ['id' => $event->objectid])) {
+        return;
+    }
+    if (!$cm = get_coursemodule_from_id('trainingevent', $comprecord->coursemoduleid)) {
+        return;
+    }
+
+    // Reset the module caches.
+    course_modinfo::purge_course_modules_cache($cmrec->course, [$cmrec->id]);
+
+    return;
+}

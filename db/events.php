@@ -55,4 +55,11 @@ $observers = array(
         'internal'    => false,
     ),
 
+    array(
+        'eventname'   => '\core\event\course_module_completion_updated',
+        'callback'    => 'mod_trainingevent_observer::course_module_completion_updated',
+        'includefile' => '/mod/trainingevent/classes/observer.php',
+        'internal'    => false,
+    ),
+
 );

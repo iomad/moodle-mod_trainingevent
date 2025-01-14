@@ -71,4 +71,15 @@ class mod_trainingevent_observer {
         trainingevent_request_denied($event);
         return true;
     }
+
+    /**
+     * Triggered via core::course_module_completion_updated event.
+     *
+     * @param \core\event\course_module_completion_updated $event
+     * @return bool true on success.
+     */
+    public static function course_module_completion_updated($event) {
+        trainingevent_course_module_completion_updated($event);
+        return true;
+    }
 }
