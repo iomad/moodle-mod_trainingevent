@@ -844,7 +844,7 @@ function trainingevent_attendance_changed($event) {
 function trainingevent_request_denied($event) {
     global $DB, $CFG;
 
-    $DB->delete_records('trainingevet_users', ['trainingeventid' => $event->objectid, 'userid' => $event->relateduserid]);
+    $DB->delete_records('trainingevent_users', ['trainingeventid' => $event->objectid, 'userid' => $event->relateduserid]);
 
     return;
 }
