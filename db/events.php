@@ -55,4 +55,12 @@ $observers = array(
         'internal'    => false,
     ),
 
+    array(
+        'eventname'   => '\block_iomad_approve_access\event\request_denied',
+        'callback'    => 'mod_trainingevent_observer::request_denied',
+        'includefile' => '/mod/trainingevent/classes/observer.php',
+        'internal'    => false,
+    ),
+
+
 );

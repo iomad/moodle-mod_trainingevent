@@ -177,7 +177,7 @@ function trainingevent_get_participants($trainingeventid) {
  * @return object|null
  */
 function trainingevent_get_coursemodule_info($coursemodule) {
-    global $DB, $CFG, $USER, $OUTPUT;
+    global $DB, $CFG, $USER, $OUTPUT, $PAGE;
 
     if ($trainingevent = $DB->get_record('trainingevent', array('id' => $coursemodule->instance), '*')) {
         if (empty($trainingevent->name)) {
@@ -186,13 +186,6 @@ function trainingevent_get_coursemodule_info($coursemodule) {
             $DB->set_field('trainingevent', 'name', $trainingevent->name, array('id' => $trainingevent->id));
         }
         $info = new cached_cm_info();
-
-        // No filtering here because this info is cached and filtered later.
-        if (empty($coursemodule->showdescription)) {
-            $extra = '';
-        } else {
-            $extra = $trainingevent->intro;
-        }
 
         //Create template variable
         $template = (object)[];
@@ -228,12 +221,42 @@ function trainingevent_get_coursemodule_info($coursemodule) {
                                                            WHERE name = 'trainingevent'))",
                                                          ["id" => $trainingevent->id])->total." " :
                                     null;
-        $trainingevent->intro = $OUTPUT->render_from_template('mod_trainingevent/intro', $template);
+        // Have to use flat HTML - no templates here or it will cause issues when you reset the cache.
+        $trainingevent->intro = html_writer::start_tag('div');
+        $trainingevent->intro .= get_string('location', 'trainingevent') . ": " . $template->name;
+        $trainingevent->intro .= html_writer::empty_tag('br');
+        $trainingevent->intro .= get_string('startdatetime', 'trainingevent') . ": " . $template->startdatetime;
+        $trainingevent->intro .= html_writer::empty_tag('br');
+        if (!empty($template->usersbooked)) {
+            $trainingevent->intro .= get_string('usersbooked', 'trainingevent') . ": " . $template->usersbooked;
+            $trainingevent->intro .= html_writer::empty_tag('br');
+        }
+        if (!empty($template->slotsleft)) {
+            $trainingevent->intro .= get_string('slotsleft', 'trainingevent') . ": " . $template->slotsleft;
+            $trainingevent->intro .= html_writer::empty_tag('br');
+        }
+        if (!empty($template->waitinglist)) {
+            $trainingevent->intro .= get_string('waitinglistlength', 'trainingevent') . ": " . $template->waitinglist;
+            $trainingevent->intro .= html_writer::empty_tag('br');
+        }
+        if (!empty($template->usersattended)) {
+            $trainingevent->intro .= get_string('usersattended', 'trainingevent') . ": " . $template->usersattended;
+            $trainingevent->intro .= html_writer::empty_tag('br');
+        }
+        $trainingevent->intro .= html_writer::tag('a', get_string('details', 'trainingevent'), ['href' => $template->moduleurl]);
+        $trainingevent->intro .= html_writer::end_tag('div');
+
+        // No filtering here because this info is cached and filtered later.
+        if (empty($coursemodule->showdescription)) {
+            $extra = '';
+        } else {
+            $extra = $trainingevent->intro;
+        }
 
         $info->content = null;
         $info->content = format_module_intro('trainingevent', $trainingevent, $coursemodule->id, false);
         
-        $info->name  = format_string($trainingevent->name);
+        $info->name  = format_string($trainingevent->name, true, ['context' => context_module::instance($coursemodule->id)]);
 
         return $info;
 
@@ -363,6 +386,11 @@ function trainingevent_user_attending($event) {
         return false;
     }
 
+    // Is this a valid Course Module?
+    if (!$cm = get_coursemodule_from_instance('trainingevent', $trainingevent->id, $trainingevent->course)) {
+        throw new moodle_exception('invalidcoursemodule');
+    }
+
     // Does the user exist?
     if (!$user = $DB->get_record('user', ['id' => $event->relateduserid])) {
         return false;
@@ -467,6 +495,9 @@ function trainingevent_user_attending($event) {
         }
     }
 
+    // Reset the module cache.
+    course_modinfo::purge_course_modules_cache($course->id, [$cm->id]);
+
     // Is the event exclusive?
     if (empty($trainingevent->isexclusive)) {
         return;
@@ -500,6 +531,11 @@ function trainingevent_user_removed($event) {
     // Does the training event even exist?
     if (!$trainingevent = $DB->get_record('trainingevent', ['id' => $event->objectid])) {
         return false;
+    }
+
+    // Is this a valid Course Module?
+    if (!$cm = get_coursemodule_from_instance('trainingevent', $trainingevent->id, $trainingevent->course)) {
+        throw new moodle_exception('invalidcoursemodule');
     }
 
     // Does the user exist?
@@ -572,6 +608,9 @@ function trainingevent_user_removed($event) {
         }
     }
 
+    // Reset the module cache.
+    course_modinfo::purge_course_modules_cache($course->id, [$cm->id]);
+
     // Is anyone on the waiting list?
     $waitlistusers = $DB->get_records('trainingevent_users', ['trainingeventid' => $trainingevent->id,
                                                               'waitlisted' => 1], 'id ASC');
@@ -633,120 +672,6 @@ function trainingevent_user_removed($event) {
 }
 
 /**
- * Processes anything else that needs to happen when the trainingevent_manager_approved event is fired.
- *
- */
-function trainingevent_manager_approved($event) {
-    global $DB, $CFG;
-
-    // Does the training event even exist?
-    if (!$trainingevent = $DB->get_record('trainingevent', ['id' => $event->objectid])) {
-        return false;
-    }
-
-    // Does the user exist?
-    if (!$user = $DB->get_record('user', ['id' => $event->relateduserid])) {
-        return false;
-    }
-
-    // Does the course exist?
-    if (!$course = $DB->get_record('course', ['id' => $event->courseid])) {
-        return false;
-    }
-
-    // Does the location exist?
-    if (!$location = $DB->get_record('classroom', ['id' => $trainingevent->classroomid])) {
-        return false;
-    }
-
-    // Is this removal from the waiting list?
-    if (!empty($event->other['waitlisted'])) {
-        return;
-    }
-
-    // Set the company.
-    $company = new company($event->companyid);
-
-    // Add the time to the location object.
-    $location->time = date($CFG->iomad_date_format . ' \a\t H:i', $trainingevent->startdatetime);
-
-    if (!$userbooking = $DB->get_record('block_iomad_approve_access', ['activityid' => $trainingevent->id,
-                                                                       'userid' => $user->id])) {
-        if (!$DB->insert_record('block_iomad_approve_access', ['activityid' => $trainingevent->id,
-                                                               'userid' => $user->id,
-                                                               'courseid' => $trainingevent->course,
-                                                               'tm_ok' => 0,
-                                                               'manager_ok' => 1,
-                                                               'companyid' => $company->id])) {
-            throw new moodle_exception('error creating attendance record');
-        } else {
-            // Send an email as long as it hasn't already started.
-            if ($trainingevent->startdatetime > time()) {
-                // Get the list of managers we need to send an email to.
-                $mymanagers = $company->get_my_managers($user->id, 1);
-                foreach ($mymanagers as $mymanager) {
-                    if ($manageruser = $DB->get_record('user', array('id' => $mymanager->userid))) {
-                        EmailTemplate::send('course_classroom_approval', ['course' => $course,
-                                                                          'user' => $manageruser,
-                                                                          'approveuser' => $user,
-                                                                          'event' => $trainingevent,
-                                                                          'company' => $company,
-                                                                          'classroom' => $location]);
-                    }
-                }
-            }
-        }
-    }
-
-    return;
-}
-
-/**
- * Processes anything else that needs to happen when the trainingevent_attendance_withdrawn event is fired.
- *
- */
-function trainingevent_attendance_withdrawn($event) {
-    global $DB, $CFG;
-
-    // Does the training event even exist?
-    if (!$trainingevent = $DB->get_record('trainingevent', ['id' => $event->objectid])) {
-        return false;
-    }
-
-    // Does the user exist?
-    if (!$user = $DB->get_record('user', ['id' => $event->relateduserid])) {
-        return false;
-    }
-
-    // Does the course exist?
-    if (!$course = $DB->get_record('course', ['id' => $event->courseid])) {
-        return false;
-    }
-
-    // Does the location exist?
-    if (!$location = $DB->get_record('classroom', ['id' => $trainingevent->classroomid])) {
-        return false;
-    }
-
-    // Is this removal from the waiting list?
-    if (!empty($event->other['waitlisted'])) {
-        return;
-    }
-
-    // Set the company.
-    $company = new company($event->companyid);
-
-    // Add the time to the location object.
-    $location->time = date($CFG->iomad_date_format . ' \a\t H:i', $trainingevent->startdatetime);
-
-    if ($userbooking = $DB->get_record('block_iomad_approve_access', ['activityid' => $trainingevent->id,
-                                                                      'userid' => $user->id])) {
-        $DB->delete_records('block_iomad_approve_access', ['id' => $userbooking->id]);
-    }
-
-    return;
-}
-/**
  * Processes anything else that needs to happen when the trainingevent_attendance_changed event is fired.
  *
  */
@@ -763,8 +688,18 @@ function trainingevent_attendance_changed($event) {
         return false;
     }
 
-    // Does the user exist?
+    // Is this a valid Course Module?
+    if (!$cm = get_coursemodule_from_instance('trainingevent', $trainingevent->id, $trainingevent->course)) {
+        throw new moodle_exception('invalidcoursemodule');
+    }
+
+    // Is this a valid Course Module?
+    if (!$chosencm = get_coursemodule_from_instance('trainingevent', $chosenevent->id, $chosenevent->course)) {
+        throw new moodle_exception('invalidcoursemodule');
+    }
+
     if (!$user = $DB->get_record('user', ['id' => $event->relateduserid])) {
+    // Does the user exist?
         return false;
     }
 
@@ -789,58 +724,121 @@ function trainingevent_attendance_changed($event) {
     // Add the time to the location object.
     $location->time = date($CFG->iomad_date_format . ' \a\t H:i', $trainingevent->startdatetime);
     $chosenlocation->time = date($CFG->iomad_date_format . ' \a\t H:i', $chosenevent->startdatetime);
-
-    // Remove any outstanding approval requests.
-    if ($trainingevent->approvaltype != 0) {
-        $DB->delete_records('block_iomad_approve_access', array('userid' => $user->id,
-                                                                'activityid' => $trainingevent->id));
-    }
  
-    // Do we need to notify teachers?
-    if (!empty($trainingevent->emailteachers)) {
-        // Send an email as long as it hasn't already started.
-        if ($trainingevent->startdatetime > time()) {
+    // Send an email as long as it hasn't already started.
+    if ($trainingevent->startdatetime > time()) {
 
-            // Send the user the emails.
-            EmailTemplate::send('user_removed_from_event', ['course' => $course,
-                                                            'user' => $user,
-                                                            'classroom' => $location,
-                                                            'company' => $company,
-                                                            'event' => $trainingevent]);
-            EmailTemplate::send('user_signed_up_for_event', ['course' => $course,
-                                                             'user' => $user,
-                                                             'classroom' => $chosenlocation,
-                                                             'company' => $company,
-                                                             'event' => $chosenevent]);
+        // Send the user the emails.
+        EmailTemplate::send('user_removed_from_event', ['course' => $course,
+                                                        'user' => $user,
+                                                        'classroom' => $location,
+                                                        'company' => $company,
+                                                        'event' => $trainingevent]);
+        EmailTemplate::send('user_signed_up_for_event', ['course' => $course,
+                                                         'user' => $user,
+                                                         'classroom' => $chosenlocation,
+                                                         'company' => $company,
+                                                         'event' => $chosenevent]);
 
-            // Do we send emails to teachers?
-            // Are we using groups?
-            $usergroups = groups_get_user_groups($course->id, $user->id);
-            $userteachers = [];
-            foreach ($usergroups as $usergroup => $junk) {
-                $userteachers = $userteachers +
-                                get_enrolled_users(context_course::instance($course->id), 'mod/trainingevent:viewattendees', $usergroup);
-            } 
-            foreach ($userteachers as $userteacher) {
-                if (!empty($trainingevent->emailteachers)) {
-                    EmailTemplate::send('user_removed_from_event_teacher', ['course' => $course,
-                                                                            'approveuser' => $user,
-                                                                            'user' => $userteacher,
-                                                                            'classroom' => $location,
-                                                                            'company' => $company,
-                                                                            'event' => $trainingevent]);
-                }                
-                if (!empty($chosenevent->emailteachers)) {
-                    EmailTemplate::send('user_signed_up_for_event_teacher', ['course' => $course,
-                                                                             'approveuser' => $user,
-                                                                             'user' => $userteacher,
-                                                                             'classroom' => $chosenlocation,
-                                                                             'company' => $company,
-                                                                             'event' => $chosenevent]);
-                }
+        // Are we using groups?
+        $usergroups = groups_get_user_groups($course->id, $user->id);
+        $userteachers = [];
+        foreach ($usergroups as $usergroup => $junk) {
+            $userteachers = $userteachers +
+                            get_enrolled_users(context_course::instance($course->id), 'mod/trainingevent:viewattendees', $usergroup);
+        } 
+        foreach ($userteachers as $userteacher) {
+            if (!empty($trainingevent->emailteachers)) {
+                EmailTemplate::send('user_removed_from_event_teacher', ['course' => $course,
+                                                                        'approveuser' => $user,
+                                                                        'user' => $userteacher,
+                                                                        'classroom' => $location,
+                                                                        'company' => $company,
+                                                                        'event' => $trainingevent]);
+            }                
+            if (!empty($chosenevent->emailteachers)) {
+                EmailTemplate::send('user_signed_up_for_event_teacher', ['course' => $course,
+                                                                         'approveuser' => $user,
+                                                                         'user' => $userteacher,
+                                                                         'classroom' => $chosenlocation,
+                                                                         'company' => $company,
+                                                                         'event' => $chosenevent]);
             }
         }
     }
+
+    // Reset the module caches.
+    course_modinfo::purge_course_modules_cache($course->id, [$cm->id]);
+    course_modinfo::purge_course_modules_cache($course->id, [$chosencm->id]);
+
+     // Is anyone on the waiting list?
+    $waitlistusers = $DB->get_records('trainingevent_users', ['trainingeventid' => $trainingevent->id,
+                                                              'approved' => 1,
+                                                              'waitlisted' => 1], 'id ASC');
+    if (empty($waitlistusers)) {
+        return;
+    } else {
+        // Check if there is space.
+        $attending = $DB->count_records('trainingevent_users', ['trainingeventid' => $trainingevent->id,
+                                                                'waitlisted' => 0,
+                                                                'approved' => 1]);
+
+        // Work out how many we can add to the event.
+        if (!empty($trainingevent->coursecapacity)) {
+            $maxcapacity = $trainingevent->coursecapacity;
+        } else {
+            if (empty($location->isvirtual)) {
+                $maxcapacity = $location->capacity;
+            } else {
+                $maxcapacity = 99999999999999999999;
+            }
+        }
+
+        // Only add someone if there is no capacity or there is still space.
+        if ($attending < $maxcapacity) {
+            $waitlistuser = reset($waitlistusers);
+            $DB->set_field('trainingevent_users', 'waitlisted', 0, ['id'=>$waitlistuser->id]);
+
+            // Is this an exclusive event?
+            if (!empty($trainingevent->isexclusive)) {
+                // Remove the user from any other waitinglists in this course which are exclusive.
+                if ($otherevents = $DB->get_records('trainingevent', ['course' => $trainingevent->course, 'isexclusive' => 1])) {
+                    foreach ($otherevents as $otherevent) {
+                        $DB->delete_records('trainingevent_users', ['trainingeventid' => $otherevent->id,
+                                                                    'userid' => $waitlistuser->userid,
+                                                                    'waitlisted' => 1]);
+                    }
+                } 
+            }
+
+            $course = $DB->get_record('course', array('id' => $trainingevent->course));
+            $context = context_course::instance($trainingevent->course);
+            $user = $DB->get_record('user', ['id' => $waitlistuser->userid]);
+            $usercompany = company::by_userid($user->id);
+
+            // Fire an event for this.
+            $eventother = ['waitlisted' => 0];
+            $moodleevent = \mod_trainingevent\event\user_attending::create(['context' => context_module::instance($event->contextinstanceid),
+                                                                            'userid' => $user->id,
+                                                                            'objectid' => $trainingevent->id,
+                                                                            'companyid' => $usercompany->id,
+                                                                            'courseid' => $trainingevent->course,
+                                                                            'other' => $eventother]);
+            $moodleevent->trigger();
+        }
+    }
+
+   return;
+}
+
+/**
+ * Processes anything else that needs to happen when the iomad_approve_access_request_denied event is fired.
+ *
+ */
+function trainingevent_request_denied($event) {
+    global $DB, $CFG;
+
+    $DB->delete_records('trainingevet_users', ['trainingeventid' => $event->objectid, 'userid' => $event->relateduserid]);
 
     return;
 }

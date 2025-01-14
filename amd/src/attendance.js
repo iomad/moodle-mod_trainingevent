@@ -72,6 +72,7 @@ export const init = () => {
                        attendanceid: attendanceID,
                        approvaltype: approvalType,
                        userid: showAttendanceform[i].getAttribute('data-userid'),
+                       courseid: showAttendanceform[i].getAttribute('data-courseid'),
                        requesttype: showAttendanceform[i].getAttribute('data-requesttype'),
                        dorefresh: showAttendanceform[i].getAttribute('data-dorefresh'),
                        },

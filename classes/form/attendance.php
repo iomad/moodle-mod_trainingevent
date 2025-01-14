@@ -82,10 +82,10 @@ class attendance extends dynamic_form {
                 // Fire an event if they were already approved.
                 $eventother = ['waitlisted' => $data->waitlisted];
                 $event = \mod_trainingevent\event\user_removed::create(['context' => context_module::instance($data->cmid),
-                                                                        'userid' => $data->userid,
-                                                                        'relateduserid' => $USER->id,
+                                                                        'userid' => $USER->id,
+                                                                        'relateduserid' => $data->userid,
                                                                         'objectid' => $data->trainingeventid,
-                                                                        'courseid' => $COURSE->id,
+                                                                        'courseid' => $data->courseid,
                                                                         'companyid' => $data->companyid,
                                                                         'other' => $eventother]);
                 $event->trigger();
@@ -94,10 +94,10 @@ class attendance extends dynamic_form {
                 // Fire an event if they weren't approved yet.
                 $eventother = ['waitlisted' => $data->waitlisted];
                 $event = \mod_trainingevent\event\attendance_withdrawn::create(['context' => context_module::instance($data->cmid),
-                                                                                'userid' => $data->userid,
-                                                                                'relateduserid' => $USER->id,
+                                                                                'userid' => $USER->id,
+                                                                                'relateduserid' => $data->userid,
                                                                                 'objectid' => $data->trainingeventid,
-                                                                                'courseid' => $COURSE->id,
+                                                                                'courseid' => $data->courseid,
                                                                                 'companyid' => $data->companyid,
                                                                                 'other' => $eventother]);
                 $event->trigger();
@@ -112,10 +112,10 @@ class attendance extends dynamic_form {
             // Fire an event for this.
             $eventother = ['waitlisted' => $data->waitlisted];
             $event = \mod_trainingevent\event\attendance_withdrawn::create(['context' => context_module::instance($data->cmid),
-                                                                            'userid' => $data->userid,
-                                                                            'relateduserid' => $USER->id,
+                                                                            'userid' => $USER->id,
+                                                                            'relateduserid' => $data->userid,
                                                                             'objectid' => $data->trainingeventid,
-                                                                            'courseid' => $COURSE->id,
+                                                                            'courseid' => $data->courseid,
                                                                             'companyid' => $data->companyid,
                                                                             'other' => $eventother]);
             $event->trigger();
@@ -132,33 +132,34 @@ class attendance extends dynamic_form {
                     $record->approved = 0;
 
                     // Fire an event for this.
-                    $eventother = ['waitlisted' => $data->waitlisted];
-                    $event = \block_iomad_approve_access\event\manager_approved::create(['context' => context_module::instance($data->cmid),
-                                                                                'userid' => $data->userid,
-                                                                                'relateduserid' => $USER->id,
-                                                                                'objectid' => $data->trainingeventid,
-                                                                                'courseid' => $COURSE->id,
-                                                                                'companyid' => $data->companyid,
-                                                                                'other' => $eventother]);
+                    $eventother = ['waitlisted' => $data->waitlisted,
+                                   'approvaltype' => $data->approvaltype];
+                    $event = \mod_trainingevent\event\attendance_requested::create(['context' => context_module::instance($data->cmid),
+                                                                                    'userid' => $USER->id,
+                                                                                    'relateduserid' => $data->userid,
+                                                                                    'objectid' => $data->trainingeventid,
+                                                                                    'courseid' => $data->courseid,
+                                                                                    'companyid' => $data->companyid,
+                                                                                    'other' => $eventother]);
                     $event->trigger();
 
                     // Set up the return message.
-                    $returnmessage = get_string('request_success', 'mod_trainingevent');
-                    if ($requesttype == 2) {
+                    $returnmessage = get_string('request_successful', 'mod_trainingevent');
+                    if ($data->requesttype == 2) {
                         // Additional request.
-                        $returnmessage = get_string('requestagain_success', 'mod_trainingevent');
+                        $returnmessage = get_string('requestagain_successful', 'mod_trainingevent');
                     }
-                } if (empty($record->id)) {
+                } else {
                     // Automatically approved as not required.
                     $record->approved = 1;
 
                     // Fire an event for this.
                     $eventother = ['waitlisted' => $data->waitlisted];
                     $event = \mod_trainingevent\event\user_attending::create(['context' => context_module::instance($data->cmid),
-                                                                              'userid' => $data->userid,
-                                                                              'relateduserid' => $USER->id,
+                                                                              'userid' => $USER->id,
+                                                                              'relateduserid' => $data->userid,
                                                                               'objectid' => $data->trainingeventid,
-                                                                              'courseid' => $COURSE->id,
+                                                                              'courseid' => $data->courseid,
                                                                               'companyid' => $data->companyid,
                                                                               'other' => $eventother]);
                     $event->trigger();
@@ -213,8 +214,12 @@ class attendance extends dynamic_form {
         $mform->setType('requesttype', PARAM_INT);
         $mform->addElement('hidden', 'userid');
         $mform->setType('userid', PARAM_INT);
+        $mform->addElement('hidden', 'courseid');
+        $mform->setType('courseid', PARAM_INT);
         $mform->addElement('hidden', 'dorefresh');
         $mform->setType('dorefresh', PARAM_BOOL);
+        $mform->addElement('hidden', 'approvaltype');
+        $mform->setType('approvaltype', PARAM_INT);
 
         // Add the options field.
         $mform->addElement('textarea', 'booking_notes', get_string('bookingnotes', 'mod_trainingevent'), 'wrap="virtual" rows="5" cols="5"');
@@ -228,7 +233,6 @@ class attendance extends dynamic_form {
             $mform->addElement('hidden', 'removeme', 0);
             $mform->setType('removeme', PARAM_INT);
         }
-        //$mform->hideIf('removeme', 'infoonly', true);
     }
 
     /**
@@ -246,9 +250,11 @@ class attendance extends dynamic_form {
         $attendanceid = $this->optional_param('attendanceid', 0, PARAM_INT);
         $cmid = $this->optional_param('cmid', 0, PARAM_INT);
         $requesttype = $this->optional_param('requesttype', 0, PARAM_INT);
+        $approvaltype = $this->optional_param('approvaltype', 0, PARAM_INT);
         $dorefresh = $this->optional_param('dorefresh', false, PARAM_INT);
         $trainingeventid = $this->optional_param('trainingeventid', 0, PARAM_INT);
         $userid = $this->optional_param('userid', 0, PARAM_INT);
+        $courseid = $this->optional_param('courseid', 0, PARAM_INT);
         $booking_notes = "";
 
         // Do we already have one?
@@ -266,8 +272,10 @@ class attendance extends dynamic_form {
             'booking_notes' => $booking_notes,
             'cmid' => $cmid,
             'requesttype' => $requesttype,
+            'approvaltype' => $approvaltype,
             'dorefresh' => $dorefresh,
             'userid' => $userid,
+            'courseid' => $courseid,
             'trainingeventid' => $trainingeventid,
         ];
         $this->set_data($data);
@@ -289,12 +297,8 @@ class attendance extends dynamic_form {
      * @return context
      */
     protected function get_context_for_dynamic_submission(): context {      
-    global $COURSE;
-/*        $trainingeventid = $this->optional_param('trainingeventid', 0, PARAM_INT);
-
-        $trainingevent = $DB->get_record('trainingevent', ['id' => $trainingeventid]);
-*/
-        $coursecontext = \context_course::instance($COURSE->id);
+        $courseid = $this->optional_param('courseid', 0, PARAM_INT);
+        $coursecontext = \context_course::instance($courseid);
 
         return $coursecontext;
     }
