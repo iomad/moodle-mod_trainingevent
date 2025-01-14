@@ -340,8 +340,16 @@ function trainingevent_supports($feature) {
  * @usese $userid = int
  * @returns boolean
  */
-function trainingevent_event_clashes($event, $userid) {
+function trainingevent_event_clashes($event, $userid, $ignoreeventid = 0) {
     global $DB;
+
+    $return = false;
+
+    // Are we being asked to ignore an event?
+    $ignoresql = "";
+    if (!empty($ignoreeventid)) {
+        $ignoresql = " AND cc.id != :ignoreeventid";
+    }
 
     // Check if either the current event start or end date falls between an event
     // the user is already booked on.
@@ -351,23 +359,95 @@ function trainingevent_event_clashes($event, $userid) {
                               WHERE ( cc.startdatetime < ".$event->startdatetime."
                               AND cc.enddatetime > ".$event->startdatetime.")
                               OR ( cc.startdatetime < ".$event->enddatetime."
-                              AND cc.enddatetime > ".$event->enddatetime.")",
-                              array('userid' => $userid))) {
-        return true;
+                              AND cc.enddatetime > ".$event->enddatetime.")
+                              $ignoresql",
+                             ['userid' => $userid,
+                              'ignoreeventid' => $ignoreeventid])) {
+        $return = true;
+
     } else if ($event->isexclusive &&
                $DB->get_records_sql("SELECT cc.id FROM {trainingevent} cc
                                      RIGHT JOIN {trainingevent_users} ccu
-                                     ON (ccu.trainingeventid = cc.id AND ccu.userid = :userid AND waitlisted=0)
+                                     ON (ccu.trainingeventid = cc.id AND ccu.userid = :userid AND waitlisted=0 AND approved = 1)
                                      WHERE cc.isexclusive = 1
                                      AND cc.course = :courseid
-                                     and cc.id != :eventid",
-                                     array('userid' => $userid,
-                                           'courseid' => $event->course,
-                                           'eventid' => $event->id))) {
-        return true;
-    } else {
-        return false;
+                                     AND cc.id != :eventid
+                                     $ignoresql",
+                                    ['userid' => $userid,
+                                     'courseid' => $event->course,
+                                     'eventid' => $event->id,
+                                     'ignoreeventid' => $ignoreeventid])) {
+        $return = true;
     }
+
+    return $return;
+}
+
+/**
+ * Function get get training events which are available to a user.
+ */
+function trainingevent_get_available_events($currenteventid, $courseid, $userid, $waitlisted, $includecurrent = false) {
+    global $DB;
+
+    // We need to get a list of all training events where there is space
+    // and the user is not already attending.
+    $courseevents = $DB->get_records_sql("SELECT te.*
+                                          FROM {trainingevent} te
+                                          WHERE
+                                          te.course = :courseid
+                                          AND te.id != :currenteventid",
+                                          ['courseid' => $courseid,
+                                           'currenteventid' => $currenteventid]);
+
+    // Build a list of potential destinations.
+    $returnevents = [];
+    if ($includecurrent) {
+        $currentevent = $DB->get_record('trainingevent', ['id' => $currenteventid]);
+        $returnevents[$currentevent->id] = format_string($currentevent->name);
+    }
+    foreach ($courseevents as $courseevent) {
+        $canadd = true;
+
+        // Don't care if we are moving them on the waitlist only.
+        if (empty($waitlisted)) {
+
+            // Check if there is capacity.
+            $location = $DB->get_record('classroom', ['id' => $courseevent->classroomid]);
+            if (!$location->isvirtual) {
+                if (!empty($courseevent->coursecapacity)) {
+                    $capacity = $courseevent->coursecapacity;
+                } else {
+                    $capacity = $location->capacity;
+                }
+                // Get the currently attending users.
+                $currentcount = $DB->count_records('trainingevent_users', ['trainingeventid' => $courseevent->id,
+                                                                           'approved' => 1,
+                                                                           'waitlisted' => 0]);
+                if ($currentcount >= $capacity) {
+                    $canadd = false;
+                }
+            }
+
+            // Is the user already booked on it?
+            if ($DB->get_record('trainingevent_users', ['trainingeventid' => $courseevent->id,
+                                                        'userid' => $userid,
+                                                        'approved' => 1,
+                                                        'waitlisted' => 0])) {
+                $canadd = false;
+            }
+            // Check for other clashes.
+            if (trainingevent_event_clashes($courseevent, $userid, $currenteventid)) {
+                $canadd = false;
+            }
+        }
+
+        // Set up the list if we can add this one.
+        if ($canadd) {
+            $returnevents[$courseevent->id] = format_string($courseevent->name);
+        }
+    }
+
+    return $returnevents;
 }
 
 /****
@@ -488,7 +568,7 @@ function trainingevent_user_attending($event) {
         foreach ($userteachers as $userteacher) {
 
             // Send an email as long as it hasn't already started.
-            if ($trainingevent->startdatetime > time()) {
+            if ($trainingevent->startdatetime > $event->timecreated) {
                 EmailTemplate::send('user_signed_up_for_event_teacher', ['course' => $course,
                                                                          'approveuser' => $user,
                                                                          'user' => $userteacher,
@@ -557,18 +637,13 @@ function trainingevent_user_removed($event) {
         return false;
     }
 
-    // Is this removal from the waiting list?
-    if (!empty($event->other['waitlisted'])) {
-        return;
-    }
-
     // Set the company.
     $company = new company($event->companyid);
 
     // Send an email as long as it hasn't already started.
-    if ($event->startdatetime > time()) {
+    if ($trainingevent->startdatetime > $event->timecreated) {
         $location->time = date($CFG->iomad_date_format . ' \a\t H:i', $trainingevent->startdatetime);
-        if ($event->other['waitinglisted']) {
+        if ($event->other['waitlisted']) {
             $emailtemplatename = "user_removed_from_event_waitlist";
         } else {
             $emailtemplatename = "user_removed_from_event";
@@ -581,12 +656,14 @@ function trainingevent_user_removed($event) {
     }
 
     // Remove from the users calendar.
-    if ($calendareventrec = $DB->get_record('event',['userid' => $user->id,
-                                                     'courseid' => 0,
-                                                     'modulename' => 'trainingevent',
-                                                     'instance' => $trainingevent->id])) {
-        $calendarevent = calendar_event::load($calendareventrec->id);
-        $calendarevent->delete(true);
+    if ($calendareventrecs = $DB->get_records('event',['userid' => $user->id,
+                                                       'courseid' => 0,
+                                                       'modulename' => 'trainingevent',
+                                                       'instance' => $trainingevent->id])) {
+        foreach ($calendareventrecs as $calendareventrec) {
+            $calendarevent = calendar_event::load($calendareventrec->id);
+            $calendarevent->delete(true);
+        }
     }
 
     // Do we need to notify teachers?
@@ -601,7 +678,7 @@ function trainingevent_user_removed($event) {
         foreach ($userteachers as $userteacher) {
 
             // Send an email as long as it hasn't already started.
-            if ($event->startdatetime > time()) {
+            if ($trainingevent->startdatetime > $event->timecreated) {
                 EmailTemplate::send('user_removed_from_event_teacher', ['course' => $course,
                                                                         'approveuser' => $user,
                                                                         'user' => $userteacher,
@@ -729,28 +806,21 @@ function trainingevent_attendance_changed($event) {
     $location->time = date($CFG->iomad_date_format . ' \a\t H:i', $trainingevent->startdatetime);
     $chosenlocation->time = date($CFG->iomad_date_format . ' \a\t H:i', $chosenevent->startdatetime);
  
-    // Send an email as long as it hasn't already started.
-    if ($trainingevent->startdatetime > time()) {
+    // Get the course teachers using using groups if required.
+    $usergroups = groups_get_user_groups($course->id, $user->id);
+    $userteachers = [];
+    foreach ($usergroups as $usergroup => $junk) {
+        $userteachers = $userteachers +
+                        get_enrolled_users(context_course::instance($course->id), 'mod/trainingevent:viewattendees', $usergroup);
+    } 
 
-        // Send the user the emails.
+    // Send an email as long as it hasn't already started.
+    if ($trainingevent->startdatetime > $event->timecreated) {
         EmailTemplate::send('user_removed_from_event', ['course' => $course,
                                                         'user' => $user,
                                                         'classroom' => $location,
                                                         'company' => $company,
                                                         'event' => $trainingevent]);
-        EmailTemplate::send('user_signed_up_for_event', ['course' => $course,
-                                                         'user' => $user,
-                                                         'classroom' => $chosenlocation,
-                                                         'company' => $company,
-                                                         'event' => $chosenevent]);
-
-        // Are we using groups?
-        $usergroups = groups_get_user_groups($course->id, $user->id);
-        $userteachers = [];
-        foreach ($usergroups as $usergroup => $junk) {
-            $userteachers = $userteachers +
-                            get_enrolled_users(context_course::instance($course->id), 'mod/trainingevent:viewattendees', $usergroup);
-        } 
         if (!empty($trainingevent->emailteachers)) {
             foreach ($userteachers as $userteacher) {
                 EmailTemplate::send('user_removed_from_event_teacher', ['course' => $course,
@@ -761,6 +831,16 @@ function trainingevent_attendance_changed($event) {
                                                                         'event' => $trainingevent]);
             }                
         }                
+    }
+
+    // Deal with the chosen event.
+    if ($chosenevent->startdatetime > $event->timecreated) {
+        EmailTemplate::send('user_signed_up_for_event', ['course' => $course,
+                                                         'user' => $user,
+                                                         'classroom' => $chosenlocation,
+                                                         'company' => $company,
+                                                         'event' => $chosenevent]);
+
         if (!empty($chosenevent->emailteachers)) {
             foreach ($userteachers as $userteacher) {
                 EmailTemplate::send('user_signed_up_for_event_teacher', ['course' => $course,

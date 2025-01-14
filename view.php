@@ -189,91 +189,7 @@ if (!empty($exportcalendar)) {
     }
 }
 
-if (!empty($userid) &&
-    !empty($chosen) &&
-    $chosen != $trainingevent->id) {
-
-    // We are moving a user to another event  check there is space.
-    if (!$chosenevent = $DB->get_record('trainingevent', ['id' => $chosen])) {
-        throw new moodle_exception('chosen event is invalid');
-    } else {
-        $chosenlocation = $DB->get_record('classroom', ['id' => $chosenevent->classroomid]);
-        $alreadyattending = $DB->count_records('trainingevent_users', ['trainingeventid' => $chosenevent->id, 'waitlisted' => 0, 'approved' => 1]);
-        $user = $DB->get_record('user', ['id' => $userid]);
-        $course = $DB->get_record('course', ['id' => $trainingevent->course]);
-
-        // Is the capacity overridden?
-        if (!empty($chosenevent->coursecapacity)) {
-            $chosenlocation->capacity = $chosenevent->coursecapacity;
-        }
-
-        // Check for availability.
-        if (!empty($chosenlocation->isvirtual) || $alreadyattending < $chosenlocation->capacity) {
-
-            // Deal with current record.
-            if ($currentrecord = $DB->get_record('trainingevent_users', ['userid' => $userid,
-                                                                         'trainingeventid' => $trainingevent->id])) {
-                $DB->delete_records('trainingevent_users', ['userid' => $userid,
-                                                            'trainingeventid' => $trainingevent->id]);
-            }
-
-            // What kind of event is this?
-            if ($chosenevent->approvaltype == 0 || $chosenevent->approvaltype == 4 || $myapprovallevel == "company" ||
-                ($chosenevent->approvaltype == 1 && $myapprovallevel == "department")) {
-
-                // We are fully approved!
-                $messagestring = get_string('usermovedsuccessfully', 'trainingevent');
-                $approved = 1;
-
-                // Fire an event for this.
-                $eventother = ['choseneventid' => $chosenevent->id,
-                               'waitlisted' => 0];
-                $event = \mod_trainingevent\event\attendance_changed::create(['context' => $context,
-                                                                              'userid' => $USER->id,
-                                                                              'relateduserid' => $userid,
-                                                                              'objectid' => $trainingevent->id,
-                                                                              'companyid' => $usercompany->id,
-                                                                              'courseid' => $trainingevent->course,
-                                                                              'other' => $eventother]);
-                $event->trigger();
-            } else if (($chosenevent->approvaltype == 3 || $chosenevent->approvaltype == 2)
-                       && $myapprovallevel == "department") {
-
-                // More levels of approval are required.
-                $approved = 0;
-
-                // Fire an event for this.
-                $eventother = ['choseneventid' => $chosenevent->id,
-                               'waitlisted' => 0,
-                               'approvaltype' => $chosenevent->approvaltype];
-                $event = \mod_trainingevent\event\attendance_requested::create(['context' => $context,
-                                                                                'userid' => $USER->id,
-                                                                                'relateduserid' => $userid,
-                                                                                'objectid' => $chosenevent->id,
-                                                                                'companyid' => $usercompany->id,
-                                                                                'courseid' => $chosenevent->course,
-                                                                                'other' => $eventother]);
-                $event->trigger();
-            }
-
-            // Add to the chosen event.
-            if (!$targetrecord = $DB->get_record('trainingevent_users', ['userid' => $userid,
-                                                                         'trainingeventid' => $chosenevent->id])) {
-                $DB->insert_record('trainingevent_users', ['userid' => $userid,
-                                                           'trainingeventid' => $chosenevent->id,
-                                                           'booking_notes' => $currentrecord->booking_notes,
-                                                           'waitlisted' => 0,
-                                                           'approved' => $approved]);
-            } else {
-                $targetrecord->waitlisted = 0;
-                $targetrecord->approved = $approved;
-                $DB->update_record('trainingevent_users', $targetrecord);
-            }
-        }
-    }
-}
-
-if ($action == 'delete' &&
+/*if ($action == 'delete' &&
     !empty($userid)) {
 
 
@@ -295,10 +211,10 @@ if ($action == 'delete' &&
         $event->trigger();
     }
 }
+*/
 
 if ($action == 'add' &&
     !empty($userid)) {
-
     $chosenlocation = $DB->get_record('classroom', ['id' => $trainingevent->classroomid]);
     $alreadyattending = $DB->count_records('trainingevent_users', ['trainingeventid' => $trainingevent->id,
                                                                    'waitlisted' => 0,
@@ -337,6 +253,7 @@ if ($action == 'add' &&
         } else if (($trainingevent->approvaltype == 3 || $trainingevent->approvaltype == 2)&& $myapprovallevel == "department") {
             // More levels of approval are required.
             $approved = 0;
+            $messagestring = get_string('useraddedsuccessfully_approval', 'trainingevent');
 
             // Fire an event for this.
             $eventother = ['waitlisted' => 0,
@@ -363,6 +280,8 @@ if ($action == 'add' &&
             $DB->set_field('trainingevent_users', 'approved', $approved, ['id' => $currentrecord->id]);
         }
     }
+    redirect($PAGE->url, $messagestring,  null, \core\output\notification::NOTIFY_SUCCESS);
+    die;
 }
 if ($action == 'reset') {
     if ($confirm != md5($action)) {
@@ -781,8 +700,6 @@ if (!empty($view) && has_capability('mod/trainingevent:viewattendees', $context)
     }
 
     if (has_capability('mod/trainingevent:add', $context)) {
-        $headers[] = get_string('event', 'trainingevent');
-        $columns[] = 'event';
         if (!$download) {
             $headers[] = get_string('action', 'trainingevent');
             $columns[] = 'action';
@@ -800,7 +717,6 @@ if (!empty($view) && has_capability('mod/trainingevent:viewattendees', $context)
                                            'waiting' => $waitingoption]));
     $table->define_columns($columns);
     $table->define_headers($headers);
-    $table->no_sorting('event');
     $table->no_sorting('grade');
     $table->no_sorting('action');
 

@@ -92,35 +92,6 @@ class attendees_table extends table_sql {
      * @param object $user the table row being output.
      * @return string HTML content to go inside the td.
      */
-    public function col_event($row) {
-        global $params, $id, $waitingoption, $trainingevent, $eventselect, $OUTPUT;
-
-        if ($this->is_downloading()) {
-            return format_text($trainingevent->name);
-        }
-
-        if (has_capability('mod/trainingevent:add', context_module::instance($id))) {
-            $select = new single_select(new moodle_url('/mod/trainingevent/view.php',
-                                                       ['userid' => $row->id,
-                                                        'id' => $id,
-                                                        'view' => 1,
-                                                        'waiting' => $waitingoption]),
-                                                       'chosenevent',
-                                                       $eventselect,
-                                                       $trainingevent->id);
-            $select->formid = 'chooseevent'.$row->id;
-            $select->attributes = ['onchange' => 'this.form.submit()']; 
-            return html_writer::tag('div',
-                                    $OUTPUT->render($select),
-                                    ['id' => 'iomad_event_selector']);
-        }
-    }
-
-    /**
-     * Generate the display of the user's| fullname
-     * @param object $user the table row being output.
-     * @return string HTML content to go inside the td.
-     */
     public function col_action($row) {
         global $CFG, $company, $id, $waitingoption,
                $numattending, $maxcapacity;
