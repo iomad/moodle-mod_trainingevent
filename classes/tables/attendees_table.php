@@ -152,6 +152,12 @@ class attendees_table extends table_sql {
             if (!empty($row->waitlisted)) {
                 $updatetitle = get_string('updatewaitlist', 'trainingevent');
             }
+
+            // If we are already approved then we don't need any further.
+            if (!empty($row->approved)) {
+                $row->approvaltype = 0;
+            }
+
             $actionhtml .= "<a class='btn btn-link p-0'
                                role='button'
                                data-action='show-Attendanceform'

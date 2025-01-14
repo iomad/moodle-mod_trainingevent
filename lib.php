@@ -177,7 +177,7 @@ function trainingevent_get_participants($trainingeventid) {
  * @return object|null
  */
 function trainingevent_get_coursemodule_info($coursemodule) {
-    global $DB, $CFG, $USER, $OUTPUT, $PAGE;
+    global $DB, $CFG;
 
     if ($trainingevent = $DB->get_record('trainingevent', array('id' => $coursemodule->instance), '*')) {
         if (empty($trainingevent->name)) {
@@ -199,7 +199,9 @@ function trainingevent_get_coursemodule_info($coursemodule) {
         //Define objects to be passed to the mustache file
         $template->startdatetime = date($dateformat, $trainingevent->startdatetime);
         $template->moduleurl = "$CFG->wwwroot/mod/trainingevent/view.php?id=$coursemodule->id";
-        $template->usersbooked = $DB->count_records('trainingevent_users', ['trainingeventid' => $trainingevent->id, 'waitlisted' => 0]);
+        $template->usersbooked = $DB->count_records('trainingevent_users', ['trainingeventid' => $trainingevent->id,
+                                                                            'waitlisted' => 0,
+                                                                            'approved' => 1]);
         $classroom = $DB->get_record('classroom', ['id' => $trainingevent->classroomid]);
         if (time() < $trainingevent->startdatetime) {
             $template->slotsleft = ($classroom->isvirtual == 0) ? 
@@ -207,7 +209,9 @@ function trainingevent_get_coursemodule_info($coursemodule) {
                 ((empty($classroom->isvirtual)) ? ($classroom->capacity - $template->usersbooked) : null)) : null
             ;
             $template->waitinglist = (empty($template->slotsleft) && $classroom->isvirtual == 0) ? 
-                $DB->count_records('trainingevent_users', ['trainingeventid' => $trainingevent->id, 'waitlisted' => 1])." " : null
+                $DB->count_records('trainingevent_users', ['trainingeventid' => $trainingevent->id,
+                                                           'waitlisted' => 1,
+                                                           'approved' => 1])." " : null
             ;
         }
         $template->usersattended = (time() > $trainingevent->startdatetime) ? 
@@ -684,7 +688,7 @@ function trainingevent_attendance_changed($event) {
     }
 
     // Does the training event even exist?
-    if (!$chosenevent = $DB->get_record('trainingevent', ['id' => $event->other['chosenevent']])) {
+    if (!$chosenevent = $DB->get_record('trainingevent', ['id' => $event->other['choseneventid']])) {
         return false;
     }
 
@@ -747,8 +751,8 @@ function trainingevent_attendance_changed($event) {
             $userteachers = $userteachers +
                             get_enrolled_users(context_course::instance($course->id), 'mod/trainingevent:viewattendees', $usergroup);
         } 
-        foreach ($userteachers as $userteacher) {
-            if (!empty($trainingevent->emailteachers)) {
+        if (!empty($trainingevent->emailteachers)) {
+            foreach ($userteachers as $userteacher) {
                 EmailTemplate::send('user_removed_from_event_teacher', ['course' => $course,
                                                                         'approveuser' => $user,
                                                                         'user' => $userteacher,
@@ -756,7 +760,9 @@ function trainingevent_attendance_changed($event) {
                                                                         'company' => $company,
                                                                         'event' => $trainingevent]);
             }                
-            if (!empty($chosenevent->emailteachers)) {
+        }                
+        if (!empty($chosenevent->emailteachers)) {
+            foreach ($userteachers as $userteacher) {
                 EmailTemplate::send('user_signed_up_for_event_teacher', ['course' => $course,
                                                                          'approveuser' => $user,
                                                                          'user' => $userteacher,

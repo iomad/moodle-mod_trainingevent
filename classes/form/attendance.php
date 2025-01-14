@@ -89,7 +89,7 @@ class attendance extends dynamic_form {
                                                                         'companyid' => $data->companyid,
                                                                         'other' => $eventother]);
                 $event->trigger();
-                $returnmessage = get_string('unattend_successful', 'mod_trainingevent');
+                $returnmessage = get_string('unattend_successfull', 'mod_trainingevent');
             } else {
                 // Fire an event if they weren't approved yet.
                 $eventother = ['waitlisted' => $data->waitlisted];

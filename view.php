@@ -212,9 +212,9 @@ if (!empty($userid) &&
 
             // Deal with current record.
             if ($currentrecord = $DB->get_record('trainingevent_users', ['userid' => $userid,
-                                                                         'trainingeventid' => $chosenevent->id])) {
+                                                                         'trainingeventid' => $trainingevent->id])) {
                 $DB->delete_records('trainingevent_users', ['userid' => $userid,
-                                                            'trainingeventid' => $chosenevent->id]);
+                                                            'trainingeventid' => $trainingevent->id]);
             }
 
             // What kind of event is this?
@@ -748,13 +748,12 @@ if (!empty($view) && has_capability('mod/trainingevent:viewattendees', $context)
     $fromsql = " {user} u
                  JOIN {trainingevent_users} teu ON (u.id = teu.userid)";
 
-    if (has_capability('mod/trainingevent:viewallattendees', $coursecontext)) {
-        $wheresql = "teu.trainingeventid = :event
-                    AND teu.waitlisted = :waitlisted"; 
-    } else {
-        $wheresql = "teu.trainingeventid = :event
-                    AND u.id IN (".$allowedlist.")
-                    AND teu.waitlisted = :waitlisted"; 
+    $wheresql = "teu.trainingeventid = :event
+                 AND teu.waitlisted = :waitlisted
+                 AND teu.approved = 1"; 
+
+    if (!has_capability('mod/trainingevent:viewallattendees', $coursecontext)) {
+        $wheresql .= "AND u.id IN (".$allowedlist.")"; 
     }
     
     $sqlparams = ['waitlisted' => $waitingoption,

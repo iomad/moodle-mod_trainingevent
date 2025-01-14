@@ -28,6 +28,13 @@ defined('MOODLE_INTERNAL') || die();
 $observers = array(
 
     array(
+        'eventname'   => '\mod_trainingevent\event\attendance_changed',
+        'callback'    => 'mod_trainingevent_observer::attendance_changed',
+        'includefile' => '/mod/trainingevent/classes/observer.php',
+        'internal'    => false,
+    ),
+
+    array(
         'eventname'   => '\mod_trainingevent\event\user_attending',
         'callback'    => 'mod_trainingevent_observer::user_attending',
         'includefile' => '/mod/trainingevent/classes/observer.php',
@@ -42,25 +49,10 @@ $observers = array(
     ),
 
     array(
-        'eventname'   => '\mod_trainingevent\event\attendance_requested',
-        'callback'    => 'mod_trainingevent_observer::attendance_requested',
-        'includefile' => '/mod/trainingevent/classes/observer.php',
-        'internal'    => false,
-    ),
-
-    array(
-        'eventname'   => '\mod_trainingevent\event\attendance_withdrawn',
-        'callback'    => 'mod_trainingevent_observer::attendance_withdrawn',
-        'includefile' => '/mod/trainingevent/classes/observer.php',
-        'internal'    => false,
-    ),
-
-    array(
         'eventname'   => '\block_iomad_approve_access\event\request_denied',
         'callback'    => 'mod_trainingevent_observer::request_denied',
         'includefile' => '/mod/trainingevent/classes/observer.php',
         'internal'    => false,
     ),
-
 
 );
