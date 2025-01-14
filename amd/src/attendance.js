@@ -101,6 +101,13 @@ export const init = () => {
                 if (e.detail.dorefresh) {
                     location.reload(false);
                 }
+
+                var userID =  e.detail.userid;
+                var bookingNotes = document.querySelector("[data-bookingnotesid='" +  userID + "']");
+                var currentNotes = bookingNotes.getAttribute("data-content");
+                var textFrom = "<br>" + e.detail.oldnotes + "</div>";
+                var textTo = "<br>" + e.detail.newnotes + "</div>";
+                bookingNotes.setAttribute("data-content", currentNotes.replace(textFrom, textTo));
             });
         });
     }

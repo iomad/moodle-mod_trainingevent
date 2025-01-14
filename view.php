@@ -699,15 +699,15 @@ if (!empty($view) && has_capability('mod/trainingevent:viewattendees', $context)
         }
     }
 
+    if (has_capability('mod/trainingevent:grade', $context) && $waitingoption == 0) {
+        $headers[] = get_string('grade', 'grades');
+        $columns[] = 'grade';
+    }
     if (has_capability('mod/trainingevent:add', $context)) {
         if (!$download) {
             $headers[] = get_string('action', 'trainingevent');
             $columns[] = 'action';
         }
-    }
-    if (has_capability('mod/trainingevent:grade', $context) && $waitingoption == 0) {
-        $headers[] = get_string('grade', 'grades');
-        $columns[] = 'grade';
     }
 
     $table->set_sql($selectsql, $fromsql, $wheresql, $sqlparams);

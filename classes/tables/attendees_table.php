@@ -60,9 +60,11 @@ class attendees_table extends table_sql {
                          data-container='body'
                          data-toggle='popover'
                          data-placement='right'
+                         data-bookingnotesid='" . $row->id ."'
                          data-content='<div class=\"no-overflow\">
                                        <b>" . $tooltip . ":</b>
-                                       <br>" . $row->booking_notes . "</div> '
+                                       <br>" . preg_replace('/\s*\R\s*/', ' ', trim($row->booking_notes)) .
+                                       "</div> '
                          data-html='true'
                          tabindex='0'
                          data-trigger='focus'>
@@ -173,9 +175,18 @@ class attendees_table extends table_sql {
                          <input type="hidden" name="usergradeusers[]" value="'.$row->id.'" />
                          <input type="hidden" name="action" value="grade" />
                          <input type="hidden" name="view" value="1" />
-                         <input type="text" name="usergrades[]" id="id_usergrade"
+                         <div class="col-md-9 form-inline align-items-start felement" data-fieldtype="text">
+                         <input type="text"
+                                size="4"
+                                style="display: inline;"
+                                class="form-control"
+                                name="usergrades[]"
+                                id="id_usergrade' . $row->id .'"
                                 value="'.$usergradeentry->items[0]->grades[$row->id]->str_grade.'" />
-                         <input type="submit" value="' . get_string('grade', 'iomadcertificate') . '" />';
+                         </div>
+                         <input type="submit"
+                                class="btn btn-secondary"
+                                value="' . get_string('grade', 'iomadcertificate') . '" />';
 
         }
 
@@ -223,7 +234,7 @@ class attendees_table extends table_sql {
         global $params, $id, $waitingoption;
 
         if (has_capability('mod/trainingevent:grade', context_module::instance($id)) && $waitingoption == 0) {
-            echo '<form action="view.php" method="get">';
+            echo '<form action="view.php" class="mform" method="get">';
         }
     }
 
@@ -231,7 +242,7 @@ class attendees_table extends table_sql {
         global $params, $id, $waitingoption;
 
         if (has_capability('mod/trainingevent:grade', context_module::instance($id)) && $waitingoption == 0) {
-            echo '<br><input type="submit" value="' . get_string('grade', 'iomadcertificate') . '" />
+            echo '<br><input type="submit" class="btn btn-secondary" value="' . get_string('grade', 'iomadcertificate') . '" />
                   </form>';
         }
     }

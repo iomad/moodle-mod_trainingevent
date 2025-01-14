@@ -195,6 +195,7 @@ class attendance extends dynamic_form {
         } else if (empty($data->removeme)) {
 
             // Adding or updating
+            $oldbookingnotes = $record->booking_notes;
             $record->booking_notes = $data->booking_notes;
 
             // Are we moving the booking?
@@ -355,6 +356,9 @@ class attendance extends dynamic_form {
         return [
             'result' => true,
             'returnmessage' => $returnmessage,
+            'userid' => $data->userid,
+            'oldnotes' => preg_replace('/\s*\R\s*/', ' ', trim($oldbookingnotes)),
+            'newnotes' => preg_replace('/\s*\R\s*/', ' ', trim($record->booking_notes)),
             'dorefresh' => $dorefresh
         ];
     }
