@@ -155,7 +155,7 @@ class attendees_table extends table_sql {
             $actionhtml .= "<a class='btn btn-link p-0'
                                role='button'
                                data-action='show-Attendanceform'
-                               data-companyid=." . $company->id ."
+                               data-companyid=" . $company->id ."
                                data-trainingeventid='" . $row->trainingeventid . "'
                                data-cmid='" . $id . "'
                                data-waitlisted='" . $row->waitlisted . "'
