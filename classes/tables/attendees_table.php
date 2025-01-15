@@ -51,6 +51,9 @@ class attendees_table extends table_sql {
 
         // Set  up the booking notes popup.
         $tooltip = get_string('bookingnotes', 'mod_trainingevent');
+        if (!empty($row->booking_notes)) {
+            $row->booking_notes = preg_replace('/\s*\R\s*/', ' ', trim($row->booking_notes));
+        }
 
         if (!$this->is_downloading()) {
             // Add the booking notes.
@@ -63,7 +66,7 @@ class attendees_table extends table_sql {
                          data-bookingnotesid='" . $row->id ."'
                          data-content='<div class=\"no-overflow\">
                                        <b>" . $tooltip . ":</b>
-                                       <br>" . preg_replace('/\s*\R\s*/', ' ', trim($row->booking_notes)) .
+                                       <br>" . $row->booking_notes .
                                        "</div> '
                          data-html='true'
                          tabindex='0'

@@ -247,8 +247,6 @@ function trainingevent_get_coursemodule_info($coursemodule) {
             $trainingevent->intro .= get_string('usersattended', 'trainingevent') . ": " . $template->usersattended;
             $trainingevent->intro .= html_writer::empty_tag('br');
         }
-        $trainingevent->intro .= html_writer::tag('a', get_string('details', 'trainingevent'), ['href' => $template->moduleurl]);
-        $trainingevent->intro .= html_writer::end_tag('div');
 
         // No filtering here because this info is cached and filtered later.
         if (empty($coursemodule->showdescription)) {
