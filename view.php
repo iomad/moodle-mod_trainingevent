@@ -700,7 +700,7 @@ if (!empty($view) && has_capability('mod/trainingevent:viewattendees', $context)
     }
 
     if (has_capability('mod/trainingevent:grade', $context) && $waitingoption == 0) {
-        $headers[] = get_string('grade', 'grades');
+        $headers[] = get_string('grade', 'iomadcertificate');
         $columns[] = 'grade';
     }
     if (has_capability('mod/trainingevent:add', $context)) {
