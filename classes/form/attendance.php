@@ -129,6 +129,7 @@ class attendance extends dynamic_form {
         // Get the info from the form.
         $data = $this->get_data();
         $returnmessage = "";
+        $oldbookingnotes = "";
         $dorefresh = $data->dorefresh;
         $context = context_module::instance($data->cmid);
 

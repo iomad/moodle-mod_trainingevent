@@ -216,14 +216,16 @@ function trainingevent_get_coursemodule_info($coursemodule) {
         }
         $template->usersattended = (time() > $trainingevent->startdatetime) ? 
                                     $DB->get_record_sql("SELECT COUNT(*) as total
-                                                         FROM {course_modules_completion}
-                                                         WHERE coursemoduleid = (
-                                                          SELECT id FROM {course_modules}
-                                                          WHERE instance = :id
-                                                          AND module = (
-                                                           SELECT id FROM {modules}
-                                                           WHERE name = 'trainingevent'))",
-                                                         ["id" => $trainingevent->id])->total." " :
+                                                         FROM {course_modules_completion} cmc
+                                                         JOIN {trainingevent_users} teu
+                                                         ON (cmc.userid = teu.userid)
+                                                         WHERE cmc.coursemoduleid = :cmid
+                                                         AND teu.trainingeventid = :trainingeventid
+                                                         AND cmc.completionstate > 0
+                                                         AND teu.approved = 1
+                                                         AND teu.waitlisted =0",
+                                                         ["trainingeventid" => $trainingevent->id,
+                                                          "cmid" => $coursemodule->id])->total." " :
                                     null;
         // Have to use flat HTML - no templates here or it will cause issues when you reset the cache.
         $trainingevent->intro = html_writer::start_tag('div');
@@ -943,7 +945,7 @@ function trainingevent_course_module_completion_updated($event) {
     }
 
     // Reset the module caches.
-    course_modinfo::purge_course_modules_cache($cmrec->course, [$cmrec->id]);
+    course_modinfo::purge_course_modules_cache($cm->course, [$cm->id]);
 
     return;
 }
