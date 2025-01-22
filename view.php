@@ -550,7 +550,7 @@ if (!$download) {
 }
 
 // Set up the booking control button.
-if ($buttonstring != '') {
+if (!empty($buttonstring)) {
     $template->button[] = [$companyid,
                            $cm->instance,
                            $id, 
