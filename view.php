@@ -185,7 +185,7 @@ if (!empty($exportcalendar)) {
         header('Content-type: text/calendar; charset=utf-8');
 
         echo $serialized;
-        die;            
+        die;
     }
 }
 
@@ -358,7 +358,7 @@ if (!empty($publish)) {
         if (!empty($location->postcode)) {
             $eventlocation .= ", " . format_string($location->postcode);
         }
-        $calendarevent->location = $eventlocation; 
+        $calendarevent->location = $eventlocation;
         $calendarevent->courseid = $course->id;
         $calendarevent->modulename = 'trainingevent';
         $calendarevent->instance = $trainingevent->id;
@@ -550,8 +550,8 @@ if (!$download) {
 if (!empty($buttonstring)) {
     $template->button[] = [$companyid,
                            $cm->instance,
-                           $id, 
-                           ($numattending < $maxcapacity) ? 0 : 1, 
+                           $id,
+                           ($numattending < $maxcapacity) ? 0 : 1,
                            ($DB->record_exists('trainingevent_users', ['userid' => $USER->id,
                                                                        'trainingeventid' => $trainingevent->id]))
                             ? $DB->get_record('trainingevent_users', ['userid' => $USER->id,
@@ -643,7 +643,7 @@ if (!empty($view) && has_capability('mod/trainingevent:viewattendees', $context)
                     get_string('department', 'block_iomad_company_admin'),
                     get_string('email')];
 
-    // If downloading add the booking notes column, otherwise ignore it.        
+    // If downloading add the booking notes column, otherwise ignore it.
     if ($download &&
         !empty($trainingevent->requirenotes)) {
         $headers[] = get_string('bookingnotes', 'mod_trainingevent');
@@ -664,12 +664,12 @@ if (!empty($view) && has_capability('mod/trainingevent:viewattendees', $context)
 
     $wheresql = "teu.trainingeventid = :event
                  AND teu.waitlisted = :waitlisted
-                 AND teu.approved = 1"; 
+                 AND teu.approved = 1";
 
     if (!has_capability('mod/trainingevent:viewallattendees', $coursecontext)) {
-        $wheresql .= "AND u.id IN (".$allowedlist.")"; 
+        $wheresql .= "AND u.id IN (".$allowedlist.")";
     }
-    
+
     $sqlparams = ['waitlisted' => $waitingoption,
                   'event' => $trainingevent->id];
 
